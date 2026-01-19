@@ -1,0 +1,575 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  CITIZEN
+  ENTERPRISE
+  COLLECTOR
+  ADMIN
+}
+
+enum ReportStatus {
+  PENDING
+  ACCEPTED
+  ASSIGNED
+  ON_THE_WAY
+  WAITING_CUSTOMER
+  COLLECTED
+  REJECTED
+}
+
+enum WasteType {
+  ORGANIC
+  RECYCLABLE
+  HAZARDOUS
+}
+
+enum AttemptResult {
+  SUCCESS
+  CUSTOMER_ABSENT
+  FAILED
+}
+
+enum CollectorAvailability {
+  AVAILABLE
+  ON_TASK
+  OFFLINE
+}
+
+enum SubscriptionPlan {
+  MONTHLY
+  HALF_YEAR
+  YEARLY
+}
+
+enum ComplaintStatus {
+  OPEN
+  RESOLVED
+  REJECTED
+}
+
+enum NotificationType {
+  REPORT_ASSIGNED
+  REPORT_STATUS_CHANGED
+  CUSTOMER_NOT_FOUND
+  SYSTEM
+}
+
+enum AccountStatus {
+  ACTIVE
+  BANNED
+  DELETED
+}
+
+enum EnterpriseStatus {
+  PENDING
+  ACTIVE
+  BANNED
+  EXPIRED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+//////////////////////////
+// ROLE & PERMISSION
+//////////////////////////
+
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        UserRole         @unique
+  permissions RolePermission[]
+  users       User[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  isActive     Boolean @default(true)
+
+  role       Role       @relation(fields: [roleId], references: [id])
+  permission Permission @relation(fields: [permissionId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+//////////////////////////
+// USER
+//////////////////////////
+
+model User {
+  id        Int           @id @default(autoincrement())
+  email     String        @unique @db.VarChar(255)
+  password  String        @db.VarChar(255)
+  fullName  String        @db.VarChar(255)
+  avatar    String?       @db.VarChar(255)
+  phone     String?       @db.VarChar(20)
+  roleId    Int
+  status    AccountStatus @default(ACTIVE)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  deletedAt DateTime?
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  reports               Report[]
+  enterprise            Enterprise?
+  collector             Collector?
+  payments              Payment[]
+  citizenPointHistories CitizenPointHistory[]
+  complaints            Complaint[]
+  notifications         Notification[]
+  passwordResets        PasswordReset[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+//////////////////////////
+// ENTERPRISE
+//////////////////////////
+
+model Enterprise {
+  id     Int              @id @default(autoincrement())
+  userId Int              @unique
+  name   String           @db.VarChar(255)
+  status EnterpriseStatus @default(ACTIVE)
+
+  // địa chỉ vật lý duy nhất
+  address   String @db.Text
+  latitude  Float // Range: -90 to 90
+  longitude Float // Range: -180 to 180
+
+  capacityKg Decimal   @db.Decimal(10, 2)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+  user       User      @relation(fields: [userId], references: [id])
+
+  workingHour       EnterpriseWorkingHour?
+  serviceAreas      EnterpriseServiceArea[]
+  wasteTypes        EnterpriseWasteType[]
+  payments          Payment[]
+  collectors        Collector[]
+  subscriptions     Subscription[]
+  reportAssignments ReportAssignment[]
+
+  @@index([name])
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([deletedAt])
+}
+
+model EnterpriseWorkingHour {
+  enterpriseId Int    @id
+  startTime    String // "08:00"
+  endTime      String // "17:00"
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+}
+
+model EnterpriseServiceArea {
+  id           Int @id @default(autoincrement())
+  enterpriseId Int
+
+  provinceCode String
+  districtCode String?
+  wardCode     String?
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@index([provinceCode, districtCode, wardCode])
+}
+
+model EnterpriseWasteType {
+  id           Int       @id @default(autoincrement())
+  enterpriseId Int
+  wasteType    WasteType
+
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([enterpriseId, wasteType])
+}
+
+//////////////////////////
+// PAYMENT
+//////////////////////////
+
+model Payment {
+  id Int @id @default(autoincrement())
+
+  // Liên kết với user và enterprise
+  userId                   Int
+  enterpriseId             Int
+  subscriptionPlanConfigId Int
+
+  // Thông tin thanh toán cơ bản
+  method PaymentMethod
+  status PaymentStatus @default(PENDING)
+
+  amount      Decimal @db.Decimal(12, 2)
+  currency    String  @default("VND") @db.VarChar(3)
+  description String  @db.VarChar(255) // Mô tả giao dịch
+
+  // Mã tham chiếu để sinh viên dễ tra cứu
+  referenceCode String @unique @db.VarChar(50) // Mã đơn hàng duy nhất
+
+  // Thông tin ngân hàng (cho bank transfer)
+  bankTransactionId String? @db.VarChar(100) // Mã giao dịch từ ngân hàng
+  bankAccountNumber String? @db.VarChar(50) // Số tài khoản nhận
+  bankName          String? @db.VarChar(100) // Tên ngân hàng
+  notes             String? @db.Text
+
+  // Hỗ trợ SePay webhook
+  webhookId   String? @db.VarChar(100) // ID từ webhook SePay
+  webhookData Json? // Dữ liệu webhook raw từ SePay
+
+  // Mốc thời gian
+  createdAt   DateTime  @default(now()) // Thời điểm tạo
+  expiresAt   DateTime? // Thời hạn thanh toán (30 phút sau createdAt)
+  paidAt      DateTime? // Thời điểm thanh toán thành công
+  failedAt    DateTime? // Thời điểm thất bại
+  cancelledAt DateTime? // Thời điểm hủy
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  user                   User                   @relation(fields: [userId], references: [id])
+  enterprise             Enterprise             @relation(fields: [enterpriseId], references: [id])
+  subscriptionPlanConfig SubscriptionPlanConfig @relation(fields: [subscriptionPlanConfigId], references: [id])
+
+  // Indexes
+  @@index([userId])
+  @@index([enterpriseId])
+  @@index([subscriptionPlanConfigId])
+  @@index([status])
+  @@index([referenceCode])
+  @@index([webhookId])
+  @@index([expiresAt])
+}
+
+//////////////////////////
+// SUBSCRIPTION PLAN CONFIG
+//////////////////////////
+
+model SubscriptionPlanConfig {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique @db.VarChar(100) // "1 Tháng", "6 Tháng", "1 Năm"
+  description String? @db.Text
+
+  // Cấu hình giá và thời hạn
+  price          Decimal @db.Decimal(12, 2) // Giá gói
+  durationMonths Int // Số tháng của gói (1, 6, 12)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+  payments      Payment[]
+
+  @@index([isActive])
+  @@index([durationMonths])
+}
+
+//////////////////////////
+// SUBSCRIPTION
+//////////////////////////
+
+model Subscription {
+  id                       Int       @id @default(autoincrement())
+  enterpriseId             Int
+  subscriptionPlanConfigId Int
+  startDate                DateTime
+  endDate                  DateTime
+  isActive                 Boolean   @default(true)
+  cancelledAt              DateTime?
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  enterprise             Enterprise             @relation(fields: [enterpriseId], references: [id])
+  subscriptionPlanConfig SubscriptionPlanConfig @relation(fields: [subscriptionPlanConfigId], references: [id])
+
+  @@index([enterpriseId])
+  @@index([subscriptionPlanConfigId])
+  @@index([isActive, endDate])
+}
+
+//////////////////////////
+// COLLECTOR
+//////////////////////////
+
+model Collector {
+  id           Int       @id
+  userId       Int       @unique
+  enterpriseId Int
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  user       User       @relation(fields: [userId], references: [id])
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+
+  status            CollectorStatus?
+  attempts          ReportAttempt[]
+  reportAssignments ReportAssignment[]
+
+  @@index([enterpriseId])
+  @@index([deletedAt])
+}
+
+model CollectorStatus {
+  collectorId Int                   @id
+  status      CollectorAvailability
+  updatedAt   DateTime              @updatedAt
+
+  collector Collector @relation(fields: [collectorId], references: [id])
+}
+
+//////////////////////////
+// REPORT
+//////////////////////////
+
+model Report {
+  id        Int @id @default(autoincrement())
+  citizenId Int
+
+  address   String @db.Text
+  latitude  Float // Range: -90 to 90
+  longitude Float // Range: -180 to 180
+
+  provinceCode String       @db.VarChar(10)
+  districtCode String       @db.VarChar(10)
+  wardCode     String       @db.VarChar(10)
+  description  String?      @db.Text
+  status       ReportStatus @default(PENDING)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  citizen User @relation(fields: [citizenId], references: [id])
+
+  wasteItems            ReportWaste[]
+  images                ReportImage[]
+  attempts              ReportAttempt[]
+  assignment            ReportAssignment?
+  evaluation            ReportEvaluation?
+  citizenPointHistories CitizenPointHistory[]
+  complaints            Complaint[]
+
+  @@index([citizenId])
+  @@index([status])
+  @@index([provinceCode, districtCode, wardCode])
+  @@index([latitude, longitude])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+model ReportWaste {
+  id        Int       @id @default(autoincrement())
+  reportId  Int
+  wasteType WasteType
+  weightKg  Decimal   @db.Decimal(8, 2)
+  createdAt DateTime  @default(now())
+
+  report Report @relation(fields: [reportId], references: [id])
+
+  @@index([reportId])
+  @@index([wasteType])
+}
+
+model ReportImage {
+  id       Int    @id @default(autoincrement())
+  reportId Int
+  imageUrl String
+
+  report Report @relation(fields: [reportId], references: [id])
+}
+
+//////////////////////////
+// ASSIGNMENT & ATTEMPT
+//////////////////////////
+
+model ReportAssignment {
+  id           Int       @id @default(autoincrement())
+  reportId     Int       @unique
+  enterpriseId Int
+  collectorId  Int?
+  assignedAt   DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  completedAt  DateTime?
+
+  report     Report     @relation(fields: [reportId], references: [id])
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
+  collector  Collector? @relation(fields: [collectorId], references: [id])
+
+  @@index([enterpriseId])
+  @@index([collectorId])
+  @@index([assignedAt])
+}
+
+model ReportAttempt {
+  id          Int @id @default(autoincrement())
+  reportId    Int
+  collectorId Int
+
+  attemptAt DateTime      @default(now())
+  result    AttemptResult
+  note      String?       @db.Text
+
+  report    Report    @relation(fields: [reportId], references: [id])
+  collector Collector @relation(fields: [collectorId], references: [id])
+
+  @@index([reportId])
+  @@index([collectorId])
+  @@index([result])
+  @@index([attemptAt])
+}
+
+//////////////////////////
+// EVALUATION & POINT
+//////////////////////////
+
+model ReportEvaluation {
+  id       Int @id @default(autoincrement())
+  reportId Int @unique
+
+  addressCorrect Boolean
+  wasteAccuracy  Int // Range: 0-100
+  finalPoint     Int // Calculated point for citizen
+  evaluatedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  report Report                  @relation(fields: [reportId], references: [id])
+  images ReportEvaluationImage[]
+
+  @@index([reportId])
+  @@index([wasteAccuracy])
+  @@index([finalPoint])
+}
+
+model ReportEvaluationImage {
+  id           Int    @id @default(autoincrement())
+  evaluationId Int
+  imageUrl     String
+
+  evaluation ReportEvaluation @relation(fields: [evaluationId], references: [id])
+}
+
+model CitizenPointHistory {
+  id        Int      @id @default(autoincrement())
+  citizenId Int
+  reportId  Int
+  point     Int
+  reason    String   @db.VarChar(255)
+  createdAt DateTime @default(now())
+
+  citizen User   @relation(fields: [citizenId], references: [id])
+  report  Report @relation(fields: [reportId], references: [id])
+
+  @@index([citizenId])
+  @@index([reportId])
+  @@index([createdAt])
+}
+
+//////////////////////////
+// COMPLAINT
+//////////////////////////
+
+model Complaint {
+  id        Int @id @default(autoincrement())
+  reportId  Int
+  citizenId Int
+
+  content    String          @db.Text
+  status     ComplaintStatus @default(OPEN)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  resolvedAt DateTime?
+
+  report  Report @relation(fields: [reportId], references: [id])
+  citizen User   @relation(fields: [citizenId], references: [id])
+
+  @@index([reportId])
+  @@index([citizenId])
+  @@index([status])
+}
+
+//////////////////////////
+// ADMIN CONFIG
+//////////////////////////
+
+model PointConfig {
+  id        Int       @id @default(autoincrement())
+  wasteType WasteType @unique
+  basePoint Int
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([wasteType])
+}
+
+model CollectorPerformanceConfig {
+  id             Int      @id @default(autoincrement())
+  maxTimeMinutes Int // Maximum time allowed for collection in minutes
+  rewardPoint    Int // Points rewarded for completing within maxTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  content   String           @db.Text
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  userID    Int
+  otpHash   String
+  attempt   Int      @default(0)
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userID], references: [id])
+
+  @@index([userID])
+  @@index([createdAt])
+}

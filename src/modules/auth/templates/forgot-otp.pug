@@ -1,0 +1,21 @@
+doctype html
+html
+  head
+    meta(charset="utf-8")
+    meta(name="viewport" content="width=device-width, initial-scale=1")
+    style.
+      body { font-family: Arial, sans-serif; color: #222; }
+      .container { padding: 20px; }
+      .otp { font-size: 20px; font-weight: bold; letter-spacing: 2px; color: #1a73e8; }
+  body
+    .container
+      h2 Xin chào #{fullName || 'Bạn'},
+      p Bạn (hoặc ai đó) đã yêu cầu đặt lại mật khẩu cho tài khoản của bạn.
+      p
+        | Mã OTP của bạn là
+        span.otp &nbsp; #{otp}
+      p Mã này có hiệu lực trong 3 phút. Nếu bạn không yêu cầu mã này, hãy bỏ qua email này.
+      hr
+      p(style="font-size:12px;color:#666") Nếu bạn gặp vấn đề, liên hệ bộ phận hỗ trợ.
+
+
