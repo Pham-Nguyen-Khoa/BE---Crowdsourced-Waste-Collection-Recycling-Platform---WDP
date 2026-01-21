@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './modules/auth/auth.module';
 import { EnterpriseModule } from './modules/enterprise/enterprise.module';
 import { SupabaseModule } from './modules/supabase/supabase.module';
+import { CitizenModule } from './modules/citizen/citizen.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { SupabaseModule } from './modules/supabase/supabase.module';
     AuthModule,
     EnterpriseModule,
     SupabaseModule,
+    CitizenModule,
 
     /* ---------------- End Module---------------- */
   ],

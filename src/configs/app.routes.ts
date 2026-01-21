@@ -2,6 +2,7 @@
 const auth = 'auth';
 const permission = 'permissions';
 const enterprise = 'enterprise';
+const citizen = 'citizen';
 const baseRoutes = (root: string) => {
     return {
         root,
@@ -53,6 +54,12 @@ export const routesV1 = {
         // Enterprise Profile
         getProfile: `${enterprise}/profile`,
         updateProfile: `${enterprise}/profile`,
+    },
+    citizen: {
+        // Report management
+        createReport: `${citizen}/reports`,
+        getReports: `${citizen}/reports`,
+        getReport: `${citizen}/reports/:id`,
     },
 
 }

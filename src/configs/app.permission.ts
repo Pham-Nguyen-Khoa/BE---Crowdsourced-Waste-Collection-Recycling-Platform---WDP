@@ -12,7 +12,7 @@ export const resourcesV1 = {
     },
 
 
-    // xem profile
+    // xem profile 
 
     // Enterprise
     REGISTER_ENTERPRISE: {
@@ -53,6 +53,28 @@ export const resourcesV1 = {
     TEST_PAYMENT: {
         name: 'Test Payment',
         displayName: 'Test thanh toán',
+        parent: 'Enterprise',
+    },
+
+    // Citizen
+    CREATE_REPORT: {
+        name: 'Create Report',
+        displayName: 'Tạo báo cáo thu gom rác',
+        parent: 'Citizen',
+    },
+    GET_REPORTS: {
+        name: 'Get Reports',
+        displayName: 'Lấy danh sách báo cáo',
+        parent: 'Citizen',
+    },
+    GET_REPORT: {
+        name: 'Get Report',
+        displayName: 'Lấy chi tiết báo cáo',
+        parent: 'Citizen',
+    },
+    ENTERPRISE_RESPONSE: {
+        name: 'Enterprise Response',
+        displayName: 'Phản hồi báo cáo từ doanh nghiệp',
         parent: 'Enterprise',
     },
 

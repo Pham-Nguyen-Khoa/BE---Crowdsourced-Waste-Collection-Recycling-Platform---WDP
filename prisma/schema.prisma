@@ -170,13 +170,14 @@ model Enterprise {
   deletedAt  DateTime?
   user       User      @relation(fields: [userId], references: [id])
 
-  workingHour       EnterpriseWorkingHour?
-  serviceAreas      EnterpriseServiceArea[]
-  wasteTypes        EnterpriseWasteType[]
-  payments          Payment[]
-  collectors        Collector[]
-  subscriptions     Subscription[]
-  reportAssignments ReportAssignment[]
+  workingHour               EnterpriseWorkingHour?
+  serviceAreas              EnterpriseServiceArea[]
+  wasteTypes                EnterpriseWasteType[]
+  payments                  Payment[]
+  collectors                Collector[]
+  subscriptions             Subscription[]
+  reportAssignments         ReportAssignment[]
+  reportRejectedEnterprises ReportRejectedEnterprise[]
 
   @@index([name])
   @@index([status])
@@ -335,7 +336,6 @@ model Collector {
   enterprise Enterprise @relation(fields: [enterpriseId], references: [id])
 
   status            CollectorStatus?
-  attempts          ReportAttempt[]
   reportAssignments ReportAssignment[]
 
   @@index([enterpriseId])
@@ -355,8 +355,9 @@ model CollectorStatus {
 //////////////////////////
 
 model Report {
-  id        Int @id @default(autoincrement())
-  citizenId Int
+  id                  Int  @id @default(autoincrement())
+  citizenId           Int
+  currentEnterpriseId Int?
 
   address   String @db.Text
   latitude  Float // Range: -90 to 90
@@ -367,19 +368,20 @@ model Report {
   wardCode     String       @db.VarChar(10)
   description  String?      @db.Text
   status       ReportStatus @default(PENDING)
+  sentAt       DateTime? // Timestamp when notification was sent to enterprise
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   deletedAt    DateTime?
 
   citizen User @relation(fields: [citizenId], references: [id])
 
-  wasteItems            ReportWaste[]
-  images                ReportImage[]
-  attempts              ReportAttempt[]
-  assignment            ReportAssignment?
-  evaluation            ReportEvaluation?
-  citizenPointHistories CitizenPointHistory[]
-  complaints            Complaint[]
+  wasteItems                ReportWaste[]
+  images                    ReportImage[]
+  assignment                ReportAssignment?
+  evaluation                ReportEvaluation?
+  citizenPointHistories     CitizenPointHistory[]
+  complaints                Complaint[]
+  reportRejectedEnterprises ReportRejectedEnterprise[]
 
   @@index([citizenId])
   @@index([status])
@@ -387,6 +389,19 @@ model Report {
   @@index([latitude, longitude])
   @@index([createdAt])
   @@index([deletedAt])
+}
+
+model ReportRejectedEnterprise {
+  id           Int      @id @default(autoincrement())
+  reportId     Int
+  enterpriseId Int
+  rejectedAt   DateTime @default(now())
+
+  report     Report     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, enterpriseId])
+  @@index([reportId])
 }
 
 model ReportWaste {
@@ -432,23 +447,23 @@ model ReportAssignment {
   @@index([assignedAt])
 }
 
-model ReportAttempt {
-  id          Int @id @default(autoincrement())
-  reportId    Int
-  collectorId Int
+// model ReportAttempt {
+//   id          Int @id @default(autoincrement())
+//   reportId    Int
+//   collectorId Int
 
-  attemptAt DateTime      @default(now())
-  result    AttemptResult
-  note      String?       @db.Text
+//   attemptAt DateTime      @default(now())
+//   result    AttemptResult
+//   note      String?       @db.Text
 
-  report    Report    @relation(fields: [reportId], references: [id])
-  collector Collector @relation(fields: [collectorId], references: [id])
+//   report    Report    @relation(fields: [reportId], references: [id])
+//   collector Collector @relation(fields: [collectorId], references: [id])
 
-  @@index([reportId])
-  @@index([collectorId])
-  @@index([result])
-  @@index([attemptAt])
-}
+//   @@index([reportId])
+//   @@index([collectorId])
+//   @@index([result])
+//   @@index([attemptAt])
+// }
 
 //////////////////////////
 // EVALUATION & POINT
