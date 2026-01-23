@@ -25,17 +25,6 @@ class WasteTypeDto {
     wasteType: 'ORGANIC' | 'RECYCLABLE' | 'HAZARDOUS';
 }
 
-class WorkingHourDto {
-    @ApiProperty({ example: '08:00', description: 'Giờ bắt đầu làm việc' })
-    @IsString()
-    @IsNotEmpty()
-    startTime: string;
-
-    @ApiProperty({ example: '17:00', description: 'Giờ kết thúc làm việc' })
-    @IsString()
-    @IsNotEmpty()
-    endTime: string;
-}
 
 export class CreateEnterpriseDto {
     @ApiProperty({ example: 'Công ty TNHH Môi trường Xanh', description: 'Tên doanh nghiệp' })
@@ -91,19 +80,6 @@ export class CreateEnterpriseDto {
     @Type(() => WasteTypeDto)
     wasteTypes: WasteTypeDto[];
 
-    @ApiProperty({
-        type: WorkingHourDto,
-        example: {
-            startTime: '08:00',
-            endTime: '17:00'
-        },
-        description: 'Giờ làm việc',
-        required: false
-    })
-    @IsOptional()
-    @ValidateNested()
-    @Type(() => WorkingHourDto)
-    workingHour?: WorkingHourDto;
 
     @ApiProperty({ example: 1, description: 'ID gói subscription (1: 1 tháng, 2: 6 tháng, 3: 1 năm)' })
     @IsNumber()

@@ -9,6 +9,7 @@ import { GetUser } from '../../auth/guards/get-user.decorator';
 import { JWTGuard } from 'src/modules/auth/guards/jwt.guard';
 import { PermissionGuard } from 'src/modules/auth/guards/permissions.guard';
 import { User } from '@prisma/client';
+import { Permissions } from 'src/modules/auth/guards/permission.decorator';
 
 @ApiTags(
     `${resourcesV1.REGISTER_ENTERPRISE.parent}`,
@@ -26,63 +27,28 @@ export class EnterpriseController {
     @ApiOperation({ summary: resourcesV1.REGISTER_ENTERPRISE.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard, PermissionGuard)
+    @Permissions('REGISTER_ENTERPRISE')
     @Post(routesV1.enterprise.register)
     async registerAndCreatePayment(@GetUser() user: User, @Body() dto: CreateEnterpriseDto) {
         return await this.enterpriseService.registerAndCreatePayment(user.id, dto);
     }
 
-    // Legacy APIs - giữ để tương thích
-    // @ApiOperation({ summary: 'Đăng ký doanh nghiệp (DEPRECATED - dùng /register)' })
-    // @ApiBearerAuth()
-    // @UseGuards(JWTGuard, PermissionGuard)
-    // @Post(routesV1.enterprise.register.replace('register', 'register-only'))
-    // async registerEnterprise(@GetUser() user: User, @Body() dto: CreateEnterpriseDto) {
-    //     return await this.enterpriseService.registerEnterprise(user.id, dto);
-    // }
-
-    // @ApiOperation({ summary: 'Tạo thanh toán (DEPRECATED - dùng /register)' })
-    // @ApiBearerAuth()
-    // @UseGuards(JWTGuard, PermissionGuard)
-    // @Post(routesV1.enterprise.createPayment)
-    // async createPayment(@GetUser() user: User, @Body() dto: CreatePaymentDto) {
-    //     return await this.enterpriseService.createPayment(user.id, dto);
-    // }
 
     @ApiOperation({ summary: resourcesV1.GET_PAYMENT.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard, PermissionGuard)
+    @Permissions('REGISTER_ENTERPRISE')
     @Get(routesV1.enterprise.getPayment.replace(':referenceCode', ':referenceCode'))
     async getPayment(@Param('referenceCode') referenceCode: string, @GetUser() user) {
         return await this.enterpriseService.getPayment(referenceCode, user.id);
     }
 
-    // @ApiOperation({ summary: 'Kiểm tra trạng thái đăng ký doanh nghiệp của user' })
-    // @ApiBearerAuth()
-    // @UseGuards(JWTGuard, PermissionGuard)
-    // @Get(routesV1.enterprise.getProfile.replace('profile', 'registration-status'))
-    // async getRegistrationStatus(@GetUser() user) {
-    //     return await this.enterpriseService.getRegistrationStatus(user.id);
-    // }
 
-    // @ApiOperation({ summary: 'Resume flow đăng ký (cho enterprise PENDING)' })
-    // @ApiBearerAuth()
-    // @UseGuards(JWTGuard, PermissionGuard)
-    // @Post(routesV1.enterprise.register.replace('register', 'resume'))
-    // async resumeRegistration(@GetUser() user) {
-    //     return await this.enterpriseService.resumeRegistration(user.id);
-    // }
-
-    // @ApiOperation({ summary: 'Retry tạo payment mới (cho payment FAILED/EXPIRED)' })
-    // @ApiBearerAuth()
-    // @UseGuards(JWTGuard, PermissionGuard)
-    // @Post(routesV1.enterprise.createPayment.replace('create-payment', 'retry-payment/:enterpriseId'))
-    // async retryPayment(@Param('enterpriseId') enterpriseId: number, @GetUser('id') userId: number) {
-    //     return await this.enterpriseService.retryPayment(userId, enterpriseId);
-    // }
 
     @ApiOperation({ summary: resourcesV1.CANCEL_PAYMENT.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard, PermissionGuard)
+    @Permissions('REGISTER_ENTERPRISE')
     @Delete(routesV1.enterprise.cancelPayment.replace(':referenceCode', ':referenceCode'))
     async cancelPayment(@Param('referenceCode') referenceCode: string, @GetUser() user) {
         return await this.enterpriseService.cancelPayment(referenceCode, user.id);
@@ -96,6 +62,8 @@ export class EnterpriseController {
     }
 
     @ApiOperation({ summary: resourcesV1.TEST_PAYMENT.displayName })
+    @UseGuards(JWTGuard, PermissionGuard)
+    @Permissions('REGISTER_ENTERPRISE')
     @Post(routesV1.enterprise.testWebhook)
     async testPaymentSuccess(@Param('referenceCode') referenceCode: string) {
         return await this.enterpriseService.testPaymentSuccess(referenceCode);

@@ -77,5 +77,15 @@ export const resourcesV1 = {
         displayName: 'Phản hồi báo cáo từ doanh nghiệp',
         parent: 'Enterprise',
     },
+    ENTERPRISE_ACCEPTED: {
+        name: 'Enterprise Accepted',
+        displayName: 'Doanh nghiệp đã chấp nhận báo cáo',
+        parent: 'Enterprise-Reports',
+    },
+    ENTERPRISE_REJECTED: {
+        name: 'Enterprise Rejected',
+        displayName: 'Doanh nghiệp đã từ chối báo cáo',
+        parent: 'Enterprise-Reports',
+    },
 
 };

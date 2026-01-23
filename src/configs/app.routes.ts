@@ -54,6 +54,9 @@ export const routesV1 = {
         // Enterprise Profile
         getProfile: `${enterprise}/profile`,
         updateProfile: `${enterprise}/profile`,
+
+        acceptedReport: `${enterprise}/reports/:reportId/accept`,
+        rejectedReport: `${enterprise}/reports/:reportId/reject`,
     },
     citizen: {
         // Report management

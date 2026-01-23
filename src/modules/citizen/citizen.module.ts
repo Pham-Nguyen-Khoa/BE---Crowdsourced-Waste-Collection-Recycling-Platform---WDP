@@ -1,28 +1,51 @@
 import { Module } from '@nestjs/common'
-import { CitizenController } from './controllers/citizen.controller'
-import { CitizenService } from './services/citizen.service'
-import { ReportDispatcherService } from './services/report-dispatcher.service'
+import { ReportAssignmentService } from './services/report-assignment.service'
 import { ReportCronService } from './services/report-cron.service'
+
 import { PrismaModule } from '../../libs/prisma/prisma.module'
-import { AuthModule } from '../auth/auth.module'
-import { SupabaseModule } from '../supabase/supabase.module'
 import { ScheduleModule } from '@nestjs/schedule'
-import { DateHelper } from 'src/helper/date.helper'
+import { SupabaseService } from '../supabase/services/supabase.service'
+import { AuthModule } from '../auth/auth.module'
+import { MailerService } from '../auth/mail/mailer.service'
+import { JwtService } from '@nestjs/jwt'
+import { CreateReportController } from './controllers/create-report.controller'
+import { CreateReportService } from './services/create-report.service'
+
+
+const httpController = [
+  CreateReportController
+  // TestController
+]
+
+
+
+const Repository = [
+]
+
+
+const Services = [
+  CreateReportService,
+  ReportAssignmentService,
+  ReportCronService,
+  SupabaseService,
+  MailerService,
+  JwtService,
+]
+
+
 
 @Module({
   imports: [
     PrismaModule,
-    AuthModule,
-    SupabaseModule,
-    ScheduleModule.forRoot() // Enable cron jobs
+    ScheduleModule.forRoot(),
+    AuthModule
+
   ],
-  controllers: [CitizenController],
+  controllers: [...httpController],
   providers: [
-    CitizenService,
-    ReportDispatcherService,
-    ReportCronService,
-    DateHelper,
+    ...Services,
+    ...Repository,
   ],
-  exports: [CitizenService],
+  exports: [CreateReportService],
 })
 export class CitizenModule { }

@@ -24,11 +24,9 @@ export class ForgotService {
         const otpHash = await hash(otp, 10);
         await this.authRepository.createPasswordReset(user.id, otpHash);
 
-        // Render Pug template -> html, generate plaintext fallback
         try {
             const templatePath = path.resolve(__dirname, '../templates/forgot-otp.pug');
             const html = pug.renderFile(templatePath, { fullName: user.fullName, otp });
-            // Simple plaintext fallback: strip tags
             const text = `Xin chào ${user.fullName || 'Bạn'},\n\nMã OTP của bạn là: ${otp}\nMã này có hiệu lực trong 3 phút.\n\nNếu bạn không yêu cầu mã này, bỏ qua email này.`;
             await this.mailer.sendMail({
                 to: user.email,

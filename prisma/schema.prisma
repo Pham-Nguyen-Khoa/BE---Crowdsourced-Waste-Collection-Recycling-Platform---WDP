@@ -71,6 +71,7 @@ enum AccountStatus {
 enum EnterpriseStatus {
   PENDING
   ACTIVE
+  OFFLINE
   BANNED
   EXPIRED
 }
@@ -84,6 +85,13 @@ enum PaymentStatus {
   PAID
   FAILED
   CANCELLED
+}
+
+enum AttemptStatus {
+  WAITING
+  ACCEPTED
+  REJECTED
+  EXPIRED
 }
 
 //////////////////////////
@@ -170,27 +178,18 @@ model Enterprise {
   deletedAt  DateTime?
   user       User      @relation(fields: [userId], references: [id])
 
-  workingHour               EnterpriseWorkingHour?
-  serviceAreas              EnterpriseServiceArea[]
-  wasteTypes                EnterpriseWasteType[]
-  payments                  Payment[]
-  collectors                Collector[]
-  subscriptions             Subscription[]
-  reportAssignments         ReportAssignment[]
-  reportRejectedEnterprises ReportRejectedEnterprise[]
+  serviceAreas             EnterpriseServiceArea[]
+  wasteTypes               EnterpriseWasteType[]
+  payments                 Payment[]
+  collectors               Collector[]
+  subscriptions            Subscription[]
+  reportAssignments        ReportAssignment[]
+  reportEnterpriseAttempts ReportEnterpriseAttempt[]
 
   @@index([name])
   @@index([status])
   @@index([latitude, longitude])
   @@index([deletedAt])
-}
-
-model EnterpriseWorkingHour {
-  enterpriseId Int    @id
-  startTime    String // "08:00"
-  endTime      String // "17:00"
-
-  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
 }
 
 model EnterpriseServiceArea {
@@ -375,13 +374,13 @@ model Report {
 
   citizen User @relation(fields: [citizenId], references: [id])
 
-  wasteItems                ReportWaste[]
-  images                    ReportImage[]
-  assignment                ReportAssignment?
-  evaluation                ReportEvaluation?
-  citizenPointHistories     CitizenPointHistory[]
-  complaints                Complaint[]
-  reportRejectedEnterprises ReportRejectedEnterprise[]
+  wasteItems               ReportWaste[]
+  images                   ReportImage[]
+  assignment               ReportAssignment?
+  evaluation               ReportEvaluation?
+  citizenPointHistories    CitizenPointHistory[]
+  complaints               Complaint[]
+  reportEnterpriseAttempts ReportEnterpriseAttempt[]
 
   @@index([citizenId])
   @@index([status])
@@ -389,19 +388,6 @@ model Report {
   @@index([latitude, longitude])
   @@index([createdAt])
   @@index([deletedAt])
-}
-
-model ReportRejectedEnterprise {
-  id           Int      @id @default(autoincrement())
-  reportId     Int
-  enterpriseId Int
-  rejectedAt   DateTime @default(now())
-
-  report     Report     @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-
-  @@unique([reportId, enterpriseId])
-  @@index([reportId])
 }
 
 model ReportWaste {
@@ -447,23 +433,38 @@ model ReportAssignment {
   @@index([assignedAt])
 }
 
-// model ReportAttempt {
-//   id          Int @id @default(autoincrement())
-//   reportId    Int
-//   collectorId Int
+model ReportEnterpriseAttempt {
+  id           Int @id @default(autoincrement())
+  reportId     Int
+  enterpriseId Int
 
-//   attemptAt DateTime      @default(now())
-//   result    AttemptResult
-//   note      String?       @db.Text
+  // Thứ tự ưu tiên (1 = cao nhất, 2 = thứ 2, ...)
+  priorityOrder Int
 
-//   report    Report    @relation(fields: [reportId], references: [id])
-//   collector Collector @relation(fields: [collectorId], references: [id])
+  // Trạng thái của attempt này
+  status AttemptStatus @default(WAITING)
 
-//   @@index([reportId])
-//   @@index([collectorId])
-//   @@index([result])
-//   @@index([attemptAt])
-// }
+  // Thời điểm gửi notification cho enterprise
+  sentAt DateTime @default(now())
+
+  // Thời điểm hết hạn của attempt
+  expiredAt DateTime?
+
+  // Thời điểm enterprise phản hồi (accept/reject)
+  respondedAt DateTime?
+
+  // Thời điểm tạo attempt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  report     Report     @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, enterpriseId])
+  @@index([reportId, priorityOrder])
+  @@index([status, sentAt])
+  @@index([sentAt])
+}
 
 //////////////////////////
 // EVALUATION & POINT

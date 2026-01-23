@@ -21,12 +21,6 @@ export class EnterpriseRepository {
                 longitude: dto.longitude,
                 capacityKg: dto.capacityKg,
                 status: EnterpriseStatus.PENDING,
-                workingHour: dto.workingHour ? {
-                    create: {
-                        startTime: dto.workingHour.startTime,
-                        endTime: dto.workingHour.endTime
-                    }
-                } : undefined,
                 serviceAreas: {
                     create: dto.serviceAreas
                 },

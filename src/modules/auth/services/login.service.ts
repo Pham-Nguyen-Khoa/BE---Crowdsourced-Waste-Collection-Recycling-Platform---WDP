@@ -5,7 +5,7 @@ import { AuthRepository } from '../repositories/auth.repository';
 import { LoginDto } from '../dtos/login.dto';
 import { errorResponse, successResponse } from 'src/common/utils/response.util';
 
-const EXPIRE_TIME = 60 * 5;
+const EXPIRE_TIME = 60 * 60 * 24;
 
 @Injectable()
 export class LoginService {
@@ -25,7 +25,7 @@ export class LoginService {
 
     const permissions = await this.getUserPermissions(user);
     const payload = { id: user.id, fullName: user.fullName, email: user.email, roleId: user.roleId };
-    const accessToken = await this.jwtService.signAsync(payload, { secret: process.env.SECRET_KEY, expiresIn: '1h' });
+    const accessToken = await this.jwtService.signAsync(payload, { secret: process.env.SECRET_KEY, expiresIn: '1d' });
     const refreshToken = await this.jwtService.signAsync(payload, { secret: process.env.SECRET_KEY_REFRESH, expiresIn: '1d' });
 
     const result = {
