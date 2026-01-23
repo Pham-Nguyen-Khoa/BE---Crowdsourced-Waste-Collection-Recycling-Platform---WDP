@@ -9,9 +9,6 @@ export class ReportCronService {
     private readonly logger = new Logger(ReportCronService.name)
     private readonly RESPONSE_TIMEOUT_MINUTES_MS = 10 * 60 * 1000 // 10 minutes
 
-    // Global lock để tránh multiple instances chạy đồng thời (still used by API methods)
-    private static isProcessingPendingReports = false
-    private static isHandlingTimeoutAttempts = false
 
     constructor(
         private prisma: PrismaService,
@@ -22,17 +19,6 @@ export class ReportCronService {
     async triggerProcessPendingReports(): Promise<{ success: boolean, message: string, data?: any }> {
         this.logger.debug('🚀 Bắt đầu triggerProcessPendingReports từ external cron')
 
-        if (process.env.ENABLE_CRON !== 'true') {
-            this.logger.debug('❌ ENABLE_CRON != true, bỏ qua')
-            return { success: false, message: 'Cron is disabled' }
-        }
-
-        if (ReportCronService.isProcessingPendingReports) {
-            this.logger.debug('⏳ Process đang chạy, bỏ qua lần này')
-            return { success: false, message: 'Process already running' }
-        }
-
-        ReportCronService.isProcessingPendingReports = true
         const startTime = Date.now()
         this.logger.debug(`⏰ Bắt đầu xử lý lúc ${new Date().toISOString()}`)
 
@@ -101,7 +87,6 @@ export class ReportCronService {
             this.logger.error('💥 Lỗi khi xử lý danh sách PENDING:', error)
             return { success: false, message: 'Internal server error' }
         } finally {
-            ReportCronService.isProcessingPendingReports = false
             this.logger.debug('🔚 Kết thúc triggerProcessPendingReports')
         }
     }
@@ -109,17 +94,7 @@ export class ReportCronService {
     async triggerHandleTimeoutAttempts(): Promise<{ success: boolean, message: string, data?: any }> {
         this.logger.debug('🚀 Bắt đầu triggerHandleTimeoutAttempts từ external cron')
 
-        if (process.env.ENABLE_CRON !== 'true') {
-            this.logger.debug('❌ ENABLE_CRON != true, bỏ qua')
-            return { success: false, message: 'Cron is disabled' }
-        }
 
-        if (ReportCronService.isHandlingTimeoutAttempts) {
-            this.logger.debug('⏳ Timeout handler đang chạy, bỏ qua lần này')
-            return { success: false, message: 'Timeout handler already running' }
-        }
-
-        ReportCronService.isHandlingTimeoutAttempts = true
         this.logger.debug(`⏰ Bắt đầu xử lý timeout lúc ${new Date().toISOString()}`)
 
         try {
@@ -134,7 +109,6 @@ export class ReportCronService {
             this.logger.error('💥 Lỗi khi xử lý timeout attempts:', error)
             return { success: false, message: 'Internal server error' }
         } finally {
-            ReportCronService.isHandlingTimeoutAttempts = false
             this.logger.debug('🔚 Kết thúc triggerHandleTimeoutAttempts')
         }
     }
