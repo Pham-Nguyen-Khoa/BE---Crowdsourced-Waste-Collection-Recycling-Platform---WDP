@@ -9,6 +9,10 @@ export class ReportCronService {
     private readonly logger = new Logger(ReportCronService.name)
     private readonly RESPONSE_TIMEOUT_MINUTES_MS = 10 * 60 * 1000 // 10 minutes
 
+    // Global lock để tránh multiple instances chạy đồng thời
+    private static isProcessingPendingReports = false
+    private static isHandlingTimeoutAttempts = false
+
     constructor(
         private prisma: PrismaService,
         private reportAssignment: ReportAssignmentService
@@ -16,20 +20,47 @@ export class ReportCronService {
 
     @Cron(CronExpression.EVERY_MINUTE)
     async processPendingReports() {
+        console.log(process.env.ENABLE_CRON)
+        if (process.env.ENABLE_CRON !== 'true') return;
+        // Global lock: Skip nếu đã có instance đang chạy
+        if (ReportCronService.isProcessingPendingReports) {
+            this.logger.debug('⏳ processPendingReports đang chạy, bỏ qua lần này')
+            return
+        }
+
+        ReportCronService.isProcessingPendingReports = true
+
         try {
             const pendingReports = await this.prisma.report.findMany({
                 where: {
                     status: 'PENDING',
                     deletedAt: null
                 },
-                include: {
-                    wasteItems: true,
-                    reportEnterpriseAttempts: true
+                select: {
+                    id: true,
+                    latitude: true,
+                    longitude: true,
+                    provinceCode: true,
+                    districtCode: true,
+                    wardCode: true,
+                    wasteItems: {
+                        select: {
+                            weightKg: true,
+                            wasteType: true
+                        }
+                    },
+                    reportEnterpriseAttempts: {
+                        select: {
+                            enterpriseId: true,
+                            status: true,
+                            sentAt: true
+                        }
+                    }
                 }
             })
 
             if (pendingReports.length === 0) {
-                console.log("Không có đơn xử lý")
+                this.logger.debug("Không có đơn xử lý")
                 return
             }
 
@@ -47,6 +78,9 @@ export class ReportCronService {
 
         } catch (error) {
             this.logger.error('💥 Lỗi khi xử lý danh sách PENDING:', error)
+        } finally {
+            // Đảm bảo luôn release lock
+            ReportCronService.isProcessingPendingReports = false
         }
     }
 
@@ -154,11 +188,14 @@ export class ReportCronService {
 
         const wasteTypeEnums = report.wasteItems.map((w: any) => w.wasteType)
 
-        return await this.prisma.enterprise.findMany({
+        // Query tối ưu: Chỉ lấy enterprise IDs thay vì full objects
+        const enterpriseIds = await this.prisma.enterprise.findMany({
             where: {
                 AND: [
                     { status: 'ACTIVE' },
                     { deletedAt: null },
+                    { capacityKg: { gte: totalWeightKg } },
+                    // Subscription check - tối ưu hơn
                     {
                         subscriptions: {
                             some: {
@@ -166,57 +203,95 @@ export class ReportCronService {
                                 endDate: { gte: new Date() }
                             }
                         }
-                    },
-                    {
-                        AND: wasteTypeEnums.map(wasteType => ({
-                            wasteTypes: {
-                                some: { wasteType }
-                            }
-                        }))
-                    },
-                    {
-                        OR: [
-                            {
-                                serviceAreas: {
-                                    some: {
-                                        provinceCode: report.provinceCode,
-                                        districtCode: report.districtCode,
-                                        wardCode: report.wardCode
-                                    }
-                                }
-                            },
-                            {
-                                serviceAreas: {
-                                    some: {
-                                        provinceCode: report.provinceCode,
-                                        districtCode: report.districtCode,
-                                        wardCode: null
-                                    }
-                                }
-                            },
-                            {
-                                serviceAreas: {
-                                    some: {
-                                        provinceCode: report.provinceCode,
-                                        districtCode: null,
-                                        wardCode: null
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                    { capacityKg: { gte: totalWeightKg } }
+                    }
                 ]
+            },
+            select: { id: true }
+        })
+
+        if (enterpriseIds.length === 0) return []
+
+        const ids = enterpriseIds.map(e => e.id)
+
+        // Tách riêng waste types check để giảm JOIN
+        const enterprisesWithWasteTypes = await this.prisma.enterprise.findMany({
+            where: {
+                id: { in: ids },
+                AND: wasteTypeEnums.map(wasteType => ({
+                    wasteTypes: {
+                        some: { wasteType }
+                    }
+                }))
+            },
+            select: { id: true }
+        })
+
+        const wasteTypeIds = enterprisesWithWasteTypes.map(e => e.id)
+
+        // Tách riêng service areas check
+        const enterprisesWithServiceAreas = await this.prisma.enterprise.findMany({
+            where: {
+                id: { in: wasteTypeIds },
+                OR: [
+                    {
+                        serviceAreas: {
+                            some: {
+                                provinceCode: report.provinceCode,
+                                districtCode: report.districtCode,
+                                wardCode: report.wardCode
+                            }
+                        }
+                    },
+                    {
+                        serviceAreas: {
+                            some: {
+                                provinceCode: report.provinceCode,
+                                districtCode: report.districtCode,
+                                wardCode: null
+                            }
+                        }
+                    },
+                    {
+                        serviceAreas: {
+                            some: {
+                                provinceCode: report.provinceCode,
+                                districtCode: null,
+                                wardCode: null
+                            }
+                        }
+                    }
+                ]
+            },
+            select: {
+                id: true,
+                name: true,
+                latitude: true,
+                longitude: true,
+                capacityKg: true
             }
         })
+
+        return enterprisesWithServiceAreas
     }
 
     @Cron('0 */5 * * * *')
     async handleTimeoutAttempts() {
+        if (process.env.ENABLE_CRON !== 'true') return;
+        // Global lock: Skip nếu đã có instance đang chạy
+        if (ReportCronService.isHandlingTimeoutAttempts) {
+            this.logger.debug('⏳ handleTimeoutAttempts đang chạy, bỏ qua lần này')
+            return
+        }
+
+        ReportCronService.isHandlingTimeoutAttempts = true
+
         try {
             await this.reportAssignment.handleTimeoutAttempts()
         } catch (error) {
             this.logger.error('💥 Lỗi khi xử lý timeout attempts:', error)
+        } finally {
+            // Đảm bảo luôn release lock
+            ReportCronService.isHandlingTimeoutAttempts = false
         }
     }
 
