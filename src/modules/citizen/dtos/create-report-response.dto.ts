@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger"
-import { ReportStatus } from "@prisma/client"
+import { ReportStatus } from "generated/prisma/enums"
 
 export class CreateReportResponseDto {
   @ApiProperty({

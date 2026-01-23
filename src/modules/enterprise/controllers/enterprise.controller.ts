@@ -8,8 +8,8 @@ import { EnterpriseService } from '../services/enterprise.service';
 import { GetUser } from '../../auth/guards/get-user.decorator';
 import { JWTGuard } from 'src/modules/auth/guards/jwt.guard';
 import { PermissionGuard } from 'src/modules/auth/guards/permissions.guard';
-import { User } from '@prisma/client';
 import { Permissions } from 'src/modules/auth/guards/permission.decorator';
+import { User } from 'generated/prisma/client';
 
 @ApiTags(
     `${resourcesV1.REGISTER_ENTERPRISE.parent}`,

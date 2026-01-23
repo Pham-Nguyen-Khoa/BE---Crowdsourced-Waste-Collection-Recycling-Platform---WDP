@@ -13,8 +13,8 @@ import {
   Max
 } from "class-validator"
 import { Type, Transform } from "class-transformer"
-import { WasteType } from "@prisma/client"
 import { BadRequestException } from "@nestjs/common"
+import { WasteType } from "generated/prisma/enums"
 
 export class WasteItemDto {
   @ApiProperty({
