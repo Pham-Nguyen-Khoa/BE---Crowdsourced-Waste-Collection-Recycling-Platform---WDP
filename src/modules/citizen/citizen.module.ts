@@ -3,18 +3,19 @@ import { ReportAssignmentService } from './services/report-assignment.service'
 import { ReportCronService } from './services/report-cron.service'
 
 import { PrismaModule } from '../../libs/prisma/prisma.module'
-import { ScheduleModule } from '@nestjs/schedule'
+// import { ScheduleModule } from '@nestjs/schedule' // Commented out - using external cron now
 import { SupabaseService } from '../supabase/services/supabase.service'
 import { AuthModule } from '../auth/auth.module'
 import { MailerService } from '../auth/mail/mailer.service'
 import { JwtService } from '@nestjs/jwt'
 import { CreateReportController } from './controllers/create-report.controller'
+import { CronController } from './controllers/cron.controller'
 import { CreateReportService } from './services/create-report.service'
 
 
 const httpController = [
-  CreateReportController
-  // TestController
+  CreateReportController,
+  CronController
 ]
 
 
@@ -37,7 +38,7 @@ const Services = [
 @Module({
   imports: [
     PrismaModule,
-    ScheduleModule.forRoot(),
+    // ScheduleModule.forRoot(), // Commented out - using external cron now
     AuthModule
 
   ],
