@@ -1,5 +1,20 @@
+/**
+ * CRON CONFIGURATION MODES:
+ *
+ * 1. INTERNAL CRON (NestJS):
+ *    - Uncomment @Cron decorators below
+ *    - Set ENABLE_CRON=true
+ *    - Cron chạy tự động trong app
+ *
+ * 2. EXTERNAL CRON (API):
+ *    - Comment out @Cron decorators below
+ *    - Use external cron services to call:
+ *      - POST /citizen/cron/process-pending-reports (every 1 min)
+ *      - POST /citizen/cron/handle-timeout-attempts (every 5 min)
+ */
+
 import { Injectable, Logger } from '@nestjs/common'
-// import { Cron, CronExpression } from '@nestjs/schedule' // Commented out - using external cron now
+import { Cron, CronExpression } from '@nestjs/schedule'
 import { PrismaService } from '../../../libs/prisma/prisma.service'
 import { ReportAssignmentService } from './report-assignment.service'
 import { getDistance } from 'geolib'
@@ -8,6 +23,10 @@ import { getDistance } from 'geolib'
 export class ReportCronService {
     private readonly logger = new Logger(ReportCronService.name)
     private readonly RESPONSE_TIMEOUT_MINUTES_MS = 10 * 60 * 1000 // 10 minutes
+
+    // Global lock để tránh multiple instances chạy đồng thời
+    private static isProcessingPendingReports = false
+    private static isHandlingTimeoutAttempts = false
 
 
     constructor(
@@ -19,6 +38,17 @@ export class ReportCronService {
     async triggerProcessPendingReports(): Promise<{ success: boolean, message: string, data?: any }> {
         this.logger.debug('🚀 Bắt đầu triggerProcessPendingReports từ external cron')
 
+        if (process.env.ENABLE_CRON !== 'true') {
+            this.logger.debug('❌ ENABLE_CRON != true, bỏ qua')
+            return { success: false, message: 'Cron is disabled' }
+        }
+
+        if (ReportCronService.isProcessingPendingReports) {
+            this.logger.debug('⏳ Process đang chạy, bỏ qua lần này')
+            return { success: false, message: 'Process already running' }
+        }
+
+        ReportCronService.isProcessingPendingReports = true
         const startTime = Date.now()
         this.logger.debug(`⏰ Bắt đầu xử lý lúc ${new Date().toISOString()}`)
 
@@ -87,6 +117,7 @@ export class ReportCronService {
             this.logger.error('💥 Lỗi khi xử lý danh sách PENDING:', error)
             return { success: false, message: 'Internal server error' }
         } finally {
+            ReportCronService.isProcessingPendingReports = false
             this.logger.debug('🔚 Kết thúc triggerProcessPendingReports')
         }
     }
@@ -94,7 +125,17 @@ export class ReportCronService {
     async triggerHandleTimeoutAttempts(): Promise<{ success: boolean, message: string, data?: any }> {
         this.logger.debug('🚀 Bắt đầu triggerHandleTimeoutAttempts từ external cron')
 
+        if (process.env.ENABLE_CRON !== 'true') {
+            this.logger.debug('❌ ENABLE_CRON != true, bỏ qua')
+            return { success: false, message: 'Cron is disabled' }
+        }
 
+        if (ReportCronService.isHandlingTimeoutAttempts) {
+            this.logger.debug('⏳ Timeout handler đang chạy, bỏ qua lần này')
+            return { success: false, message: 'Timeout handler already running' }
+        }
+
+        ReportCronService.isHandlingTimeoutAttempts = true
         this.logger.debug(`⏰ Bắt đầu xử lý timeout lúc ${new Date().toISOString()}`)
 
         try {
@@ -109,11 +150,11 @@ export class ReportCronService {
             this.logger.error('💥 Lỗi khi xử lý timeout attempts:', error)
             return { success: false, message: 'Internal server error' }
         } finally {
+            ReportCronService.isHandlingTimeoutAttempts = false
             this.logger.debug('🔚 Kết thúc triggerHandleTimeoutAttempts')
         }
     }
 
-    // COMMENTED OUT - Using external cron API instead
     // @Cron(CronExpression.EVERY_MINUTE)
     // async processPendingReports() {
     //     console.log(process.env.ENABLE_CRON)
@@ -375,7 +416,6 @@ export class ReportCronService {
         return enterprisesWithServiceAreas
     }
 
-    // COMMENTED OUT - Using external cron API instead
     // @Cron('0 */5 * * * *')
     // async handleTimeoutAttempts() {
     //     if (process.env.ENABLE_CRON !== 'true') return;
@@ -407,13 +447,6 @@ export class ReportCronService {
         return distanceInMeters / 1000
     }
 
-    private testGeolibDistance(): void {
-        const hanoiToHcmc = this.calculateDistance(21.0285, 105.8542, 10.8231, 106.6297)
-        this.logger.log(`🧪 Test geolib: Hanoi → HCMC = ${hanoiToHcmc.toFixed(1)}km (expected: ~1150km)`)
-
-        const shortDistance = this.calculateDistance(21.0285, 105.8542, 21.0375, 105.8542)
-        this.logger.log(`🧪 Test geolib: Short distance = ${shortDistance.toFixed(3)}km (expected: ~1km)`)
-    }
 
     private async sendNotificationToEnterprise(enterpriseId: number, reportId: number): Promise<void> {
         this.logger.log(`📱 Đã gửi thông báo tới doanh nghiệp ${enterpriseId} cho báo cáo ${reportId}`)

@@ -144,5 +144,54 @@ export class ReportAssignmentService {
         }
     }
 
+    async getAllWaitingReports(userId: number) {
+        const enterprise = await this.prisma.enterprise.findFirst({
+            where: { userId },
+            select: { id: true }
+        })
+
+        if (!enterprise) {
+            return errorResponse(400, 'Ban khong co quyen truy cap doanh nghiep')
+        }
+
+        const enterpriseId = enterprise.id
+
+        const waitingAttempts = await this.prisma.reportEnterpriseAttempt.findMany({
+            where: {
+                enterpriseId,
+                status: 'WAITING'
+            },
+            include: {
+                report: {
+                    include: {
+                        citizen: {
+                            select: {
+                                id: true,
+                                fullName: true,
+                                phone: true,
+                                email: true
+                            }
+                        },
+                        // images: true,
+                        // location: true
+                    }
+                }
+            },
+            orderBy: {
+                sentAt: 'desc'
+            }
+        })
+
+        const reports = waitingAttempts.map(attempt => ({
+            ...attempt.report,
+            sentAt: attempt.sentAt,
+            attemptId: attempt.id
+        }))
+
+        this.logger.log(`📋 Doanh nghiệp ${enterpriseId} lấy ${reports.length} báo cáo đang đợi phản hồi`)
+
+        return successResponse(200, reports, `Lay thanh cong ${reports.length} bao cao dang doi phan hoi`)
+    }
+
 
 }

@@ -87,5 +87,10 @@ export const resourcesV1 = {
         displayName: 'Doanh nghiệp đã từ chối báo cáo',
         parent: 'Enterprise-Reports',
     },
+    GET_ALL_REPORT_WAITING: {
+        name: 'Get All Report Waiting',
+        displayName: 'Lấy tất cả đơn báo cáo rác đang đợi phản hồi ',
+        parent: 'Enterprise-Reports',
+    },
 
 };

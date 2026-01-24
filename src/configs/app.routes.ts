@@ -57,6 +57,7 @@ export const routesV1 = {
 
         acceptedReport: `${enterprise}/reports/:reportId/accept`,
         rejectedReport: `${enterprise}/reports/:reportId/reject`,
+        waiting: `${enterprise}/reports/waiting`,
     },
     citizen: {
         // Report management

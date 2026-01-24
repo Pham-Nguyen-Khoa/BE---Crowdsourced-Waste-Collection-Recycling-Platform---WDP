@@ -11,12 +11,14 @@ import { ReportAssignmentService } from '../citizen/services/report-assignment.s
 import { EnterpriseRejectedController } from './controllers/enterprise-rejected.controller';
 import { MailerService } from '../auth/mail/mailer.service';
 import { JwtService } from '@nestjs/jwt';
+import { GetAllReportWaitingController } from './controllers/get-all-report-waiting.controller';
 
 
 const httpController = [
     EnterpriseController,
     EnterpriseAcceptedController,
-    EnterpriseRejectedController
+    EnterpriseRejectedController,
+    GetAllReportWaitingController
 ]
 
 

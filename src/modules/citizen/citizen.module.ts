@@ -3,7 +3,7 @@ import { ReportAssignmentService } from './services/report-assignment.service'
 import { ReportCronService } from './services/report-cron.service'
 
 import { PrismaModule } from '../../libs/prisma/prisma.module'
-// import { ScheduleModule } from '@nestjs/schedule' // Commented out - using external cron now
+import { ScheduleModule } from '@nestjs/schedule'
 import { SupabaseService } from '../supabase/services/supabase.service'
 import { AuthModule } from '../auth/auth.module'
 import { MailerService } from '../auth/mail/mailer.service'
@@ -38,7 +38,7 @@ const Services = [
 @Module({
   imports: [
     PrismaModule,
-    // ScheduleModule.forRoot(), // Commented out - using external cron now
+    // ScheduleModule.forRoot(),
     AuthModule
 
   ],
