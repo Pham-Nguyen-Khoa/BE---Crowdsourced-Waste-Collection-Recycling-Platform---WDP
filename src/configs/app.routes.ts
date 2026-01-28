@@ -1,8 +1,13 @@
+import { create } from "domain";
+import { get } from "http";
+
+const profile = 'profile';
 
 const auth = 'auth';
 const permission = 'permissions';
 const enterprise = 'enterprise';
 const citizen = 'citizen';
+const notification = 'notifications';
 const baseRoutes = (root: string) => {
     return {
         root,
@@ -30,7 +35,10 @@ export const routesV1 = {
         resendOTP: `${auth}/resend-otp`,
     },
     profile: {
-        // ...baseRoutes(`${auth}`),
+        getProfile: `${profile}`,
+        updateProfile: `${profile}`,
+        uploadAvatar: `${profile}/avatar`,
+        changePassword: `${profile}/change-password`,
     },
     permission: {
         getPermissonByRole: `${permission}/:roleID`,
@@ -58,12 +66,24 @@ export const routesV1 = {
         acceptedReport: `${enterprise}/reports/:reportId/accept`,
         rejectedReport: `${enterprise}/reports/:reportId/reject`,
         waiting: `${enterprise}/reports/waiting`,
+        getDetailWaiting: `${enterprise}/reports/waiting/:id`,
+
+        createCollector: `${enterprise}/collectors`,
     },
     citizen: {
         // Report management
         createReport: `${citizen}/reports`,
         getReports: `${citizen}/reports`,
         getReport: `${citizen}/reports/:id`,
+        cancelReport: `${citizen}/reports/:id/cancel`,
+    },
+    notification: {
+        create: `${notification}`,
+        getAll: `${notification}`,
+        markRead: `${notification}/:id/read`,
+        broadcast: `${notification}/broadcast`,
+        broadcastAll: `${notification}/broadcast/all`,
+        broadcastByRole: `${notification}/broadcast/role`,
     },
 
 }

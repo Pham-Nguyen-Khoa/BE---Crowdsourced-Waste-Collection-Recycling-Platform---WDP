@@ -23,6 +23,7 @@ enum ReportStatus {
   WAITING_CUSTOMER
   COLLECTED
   REJECTED
+  CANCELLED
 }
 
 enum WasteType {
@@ -92,6 +93,7 @@ enum AttemptStatus {
   ACCEPTED
   REJECTED
   EXPIRED
+  CANCELLED
 }
 
 //////////////////////////
@@ -370,6 +372,7 @@ model Report {
   sentAt       DateTime? // Timestamp when notification was sent to enterprise
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+  cancelReason String?      @db.Text
   deletedAt    DateTime?
 
   citizen User @relation(fields: [citizenId], references: [id])
@@ -563,6 +566,7 @@ model Notification {
   type      NotificationType
   title     String           @db.VarChar(255)
   content   String           @db.Text
+  meta      Json?
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
   readAt    DateTime?
@@ -588,4 +592,19 @@ model PasswordReset {
 
   @@index([userID])
   @@index([createdAt])
+}
+
+//////////////////////////
+// DISPATCH / AUDIT LOGS
+//////////////////////////
+
+model DispatchLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  level     String
+  message   String
+  meta      Json?
+
+  @@index([createdAt])
+  @@index([level])
 }

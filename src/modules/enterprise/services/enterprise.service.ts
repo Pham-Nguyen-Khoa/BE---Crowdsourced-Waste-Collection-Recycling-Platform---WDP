@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { EnterpriseRepository } from '../repositories/enterprise.repository';
 import { CreateEnterpriseDto } from '../dtos/create-enterprise.dto';
+import { UpdateEnterpriseDto } from '../dtos/update-enterprise.dto';
 import { CreatePaymentDto } from '../dtos/create-payment.dto';
 import { SePayWebhookDto } from '../dtos/sepay-webhook.dto';
 import { errorResponse, successResponse } from 'src/common/utils/response.util';
 import { QRGenerator } from 'src/common/utils/qr.util';
+import { PrismaService } from 'src/libs/prisma/prisma.service';
 
 @Injectable()
 export class EnterpriseService {
     constructor(private readonly enterpriseRepository: EnterpriseRepository,
+        private readonly prisma: PrismaService,
     ) { }
 
     async registerAndCreatePayment(userId: number, dto: CreateEnterpriseDto) {
@@ -340,5 +343,154 @@ export class EnterpriseService {
             console.log(error)
             return errorResponse(500, 'Lỗi test thanh toán', 'TEST_FAILED');
         }
+    }
+
+    /**
+     * Lấy thông tin profile của enterprise
+     */
+    async getEnterpriseProfile(userId: number) {
+        try {
+            const enterprise = await this.prisma.enterprise.findFirst({
+                where: { userId },
+                include: {
+                    serviceAreas: true,
+                    wasteTypes: true,
+                    user: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            email: true,
+                            phone: true,
+                            avatar: true,
+                        }
+                    }
+                }
+            });
+            if (!enterprise) {
+                return errorResponse(400, 'Bạn không phải doanh nghiệp', 'NOT_ENTERPRISE');
+            }
+
+            return successResponse(200, {
+                id: enterprise.id,
+                fullName: enterprise.user.fullName,
+                email: enterprise.user.email,
+                phone: enterprise.user.phone,
+                avatar: enterprise.user.avatar,
+                name: enterprise.name,
+                address: enterprise.address,
+                capacityKg: Number(enterprise.capacityKg),
+                status: enterprise.status,
+                serviceAreas: enterprise.serviceAreas,
+                wasteTypes: enterprise.wasteTypes,
+                createdAt: enterprise.createdAt,
+            }, 'Lấy thông tin enterprise thành công');
+        } catch (error) {
+            return errorResponse(400, 'Lỗi lấy thông tin enterprise', 'GET_PROFILE_FAILED');
+        }
+    }
+
+    /**
+     * Cập nhật thông tin enterprise
+     */
+    async updateEnterprise(userId: number, dto: UpdateEnterpriseDto) {
+        try {
+            const enterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
+            if (!enterprise) {
+                return errorResponse(400, 'Bạn không phải doanh nghiệp', 'NOT_ENTERPRISE');
+            }
+
+            // Cập nhật enterprise
+            const updatedEnterprise = await this.enterpriseRepository.updateEnterprise(enterprise.id, {
+                name: dto.name,
+                address: dto.address,
+                latitude: dto.latitude,
+                longitude: dto.longitude,
+                capacityKg: dto.capacityKg ? Number(dto.capacityKg) : undefined,
+            });
+
+            // Cập nhật service areas nếu có
+            if (dto.serviceAreas && dto.serviceAreas.length > 0) {
+                await this.enterpriseRepository.deleteEnterpriseServiceAreas(enterprise.id);
+                await this.enterpriseRepository.createEnterpriseServiceAreas(enterprise.id, dto.serviceAreas);
+            }
+
+            // Cập nhật waste types nếu có
+            if (dto.wasteTypes && dto.wasteTypes.length > 0) {
+                await this.enterpriseRepository.deleteEnterpriseWasteTypes(enterprise.id);
+                await this.enterpriseRepository.createEnterpriseWasteTypes(enterprise.id, dto.wasteTypes.map(wt => wt.wasteType as any));
+            }
+
+            // Lấy lại dữ liệu mới nhất
+            const finalEnterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
+            if (!finalEnterprise) {
+                return errorResponse(500, 'Không tìm thấy enterprise sau khi cập nhật', 'NOT_FOUND');
+            }
+
+            return successResponse(200, {
+                id: finalEnterprise.id,
+                name: finalEnterprise.name,
+                address: finalEnterprise.address,
+                latitude: finalEnterprise.latitude,
+                longitude: finalEnterprise.longitude,
+                capacityKg: Number(finalEnterprise.capacityKg),
+                status: finalEnterprise.status,
+                serviceAreas: finalEnterprise.serviceAreas,
+                wasteTypes: finalEnterprise.wasteTypes,
+                createdAt: finalEnterprise.createdAt,
+            }, 'Cập nhật enterprise thành công');
+        } catch (error) {
+            console.error('Error updating enterprise:', error);
+            return errorResponse(500, 'Lỗi cập nhật enterprise', 'UPDATE_FAILED');
+        }
+    }
+
+
+
+    async getAllWaitingReports(userId: number) {
+        const enterprise = await this.prisma.enterprise.findFirst({
+            where: { userId },
+            select: { id: true }
+        })
+
+        if (!enterprise) {
+            return errorResponse(400, 'Ban khong co quyen truy cap doanh nghiep')
+        }
+
+        const enterpriseId = enterprise.id
+
+        const waitingAttempts = await this.prisma.reportEnterpriseAttempt.findMany({
+            where: {
+                enterpriseId,
+                status: {
+                    in: ['WAITING', 'ACCEPTED', 'CANCELLED']
+                }
+            },
+            include: {
+                report: {
+                    include: {
+                        citizen: {
+                            select: {
+                                id: true,
+                                fullName: true,
+                                phone: true,
+                                email: true
+                            }
+                        },
+                    }
+                }
+            },
+            orderBy: {
+                sentAt: 'desc'
+            }
+        })
+
+        const reports = waitingAttempts.map(attempt => ({
+            ...attempt.report,
+            sentAt: attempt.sentAt,
+            attemptId: attempt.id
+        }))
+
+
+        return successResponse(200, reports, `Lay thanh cong ${reports.length} bao cao dang doi phan hoi`)
     }
 }

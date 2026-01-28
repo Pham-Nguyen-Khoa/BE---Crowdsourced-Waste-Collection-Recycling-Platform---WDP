@@ -32,11 +32,75 @@ export class EnterpriseRepository {
     }
 
     /**
-     * Tìm enterprise theo user ID
+     * Tìm enterprise theo user ID (bao gồm service areas và waste types)
      */
     async findEnterpriseByUserId(userId: number) {
         return this.prisma.enterprise.findFirst({
-            where: { userId }
+            where: { userId },
+            include: {
+                serviceAreas: true,
+                wasteTypes: true,
+            }
+        });
+    }
+
+    /**
+     * Cập nhật enterprise
+     */
+    async updateEnterprise(enterpriseId: number, data: {
+        name?: string;
+        address?: string;
+        latitude?: number;
+        longitude?: number;
+        capacityKg?: number;
+    }) {
+        return this.prisma.enterprise.update({
+            where: { id: enterpriseId },
+            data
+        });
+    }
+
+    /**
+     * Xóa tất cả service areas của enterprise
+     */
+    async deleteEnterpriseServiceAreas(enterpriseId: number) {
+        return this.prisma.enterpriseServiceArea.deleteMany({
+            where: { enterpriseId }
+        });
+    }
+
+    /**
+     * Tạo service areas cho enterprise
+     */
+    async createEnterpriseServiceAreas(enterpriseId: number, serviceAreas: any[]) {
+        return this.prisma.enterpriseServiceArea.createMany({
+            data: serviceAreas.map(sa => ({
+                enterpriseId,
+                provinceCode: sa.provinceCode,
+                districtCode: sa.districtCode ?? null,
+                wardCode: sa.wardCode ?? null,
+            }))
+        });
+    }
+
+    /**
+     * Xóa tất cả waste types của enterprise
+     */
+    async deleteEnterpriseWasteTypes(enterpriseId: number) {
+        return this.prisma.enterpriseWasteType.deleteMany({
+            where: { enterpriseId }
+        });
+    }
+
+    /**
+     * Tạo waste types cho enterprise
+     */
+    async createEnterpriseWasteTypes(enterpriseId: number, wasteTypes: any[]) {
+        return this.prisma.enterpriseWasteType.createMany({
+            data: wasteTypes.map(wt => ({
+                enterpriseId,
+                wasteType: wt
+            }))
         });
     }
 

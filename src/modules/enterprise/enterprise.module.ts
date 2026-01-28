@@ -12,13 +12,16 @@ import { EnterpriseRejectedController } from './controllers/enterprise-rejected.
 import { MailerService } from '../auth/mail/mailer.service';
 import { JwtService } from '@nestjs/jwt';
 import { GetAllReportWaitingController } from './controllers/get-all-report-waiting.controller';
+import { GetDetailReportWaitingController } from './controllers/get-detail-report-waiting.controller';
+import { GetDetailReportWaitingService } from './services/get-detail-report-waiting.service';
 
 
 const httpController = [
     EnterpriseController,
     EnterpriseAcceptedController,
     EnterpriseRejectedController,
-    GetAllReportWaitingController
+    GetAllReportWaitingController,
+    GetDetailReportWaitingController
 ]
 
 
@@ -30,6 +33,7 @@ const Services = [
     EnterpriseService,
     EnterpriseScheduler,
     ReportAssignmentService,
+    GetDetailReportWaitingService,
 
     MailerService,
     JwtService,

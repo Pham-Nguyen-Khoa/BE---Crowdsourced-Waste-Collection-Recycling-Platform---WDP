@@ -1,8 +1,9 @@
-import { Body, Controller, Get, Post, Delete, Param, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Delete, Param, UseGuards, Put } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { routesV1 } from 'src/configs/app.routes';
 import { resourcesV1 } from 'src/configs/app.permission';
 import { CreateEnterpriseDto } from '../dtos/create-enterprise.dto';
+import { UpdateEnterpriseDto } from '../dtos/update-enterprise.dto';
 import { CreatePaymentDto } from '../dtos/create-payment.dto';
 import { EnterpriseService } from '../services/enterprise.service';
 import { GetUser } from '../../auth/guards/get-user.decorator';
@@ -10,6 +11,8 @@ import { JWTGuard } from 'src/modules/auth/guards/jwt.guard';
 import { PermissionGuard } from 'src/modules/auth/guards/permissions.guard';
 import { Permissions } from 'src/modules/auth/guards/permission.decorator';
 import { User } from 'generated/prisma/client';
+import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
+import { Roles } from 'src/modules/auth/guards/roles.decorator';
 
 @ApiTags(
     `${resourcesV1.REGISTER_ENTERPRISE.parent}`,
@@ -67,5 +70,23 @@ export class EnterpriseController {
     @Post(routesV1.enterprise.testWebhook)
     async testPaymentSuccess(@Param('referenceCode') referenceCode: string) {
         return await this.enterpriseService.testPaymentSuccess(referenceCode);
+    }
+
+    @ApiOperation({ summary: 'Lấy thông tin profile doanh nghiệp' })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard, RolesGuard)
+    @Roles(2)
+    @Get(routesV1.enterprise.getProfile)
+    async getProfile(@GetUser() user: User) {
+        return await this.enterpriseService.getEnterpriseProfile(user.id);
+    }
+
+    @ApiOperation({ summary: 'Cập nhật thông tin doanh nghiệp' })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard, RolesGuard)
+    @Roles(2)
+    @Put(routesV1.enterprise.updateProfile)
+    async updateProfile(@GetUser() user: User, @Body() dto: UpdateEnterpriseDto) {
+        return await this.enterpriseService.updateEnterprise(user.id, dto);
     }
 }

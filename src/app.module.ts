@@ -4,6 +4,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { EnterpriseModule } from './modules/enterprise/enterprise.module';
 import { SupabaseModule } from './modules/supabase/supabase.module';
 import { CitizenModule } from './modules/citizen/citizen.module';
+import { NotificationModule } from './modules/notification/notification.module';
+import { ProfileModule } from './modules/profile/profile.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { CitizenModule } from './modules/citizen/citizen.module';
     EnterpriseModule,
     SupabaseModule,
     CitizenModule,
+    NotificationModule,
+    ProfileModule,
 
     /* ---------------- End Module---------------- */
   ],

@@ -17,6 +17,10 @@ import { Injectable, Logger } from '@nestjs/common'
 import { Cron, CronExpression } from '@nestjs/schedule'
 import { PrismaService } from '../../../libs/prisma/prisma.service'
 import { ReportAssignmentService } from './report-assignment.service'
+import { DispatchLogService } from './dispatch-log.service'
+import { NotificationService } from '../../notification/services/notification.service'
+import { NotificationGateway } from '../../notification/gateways/notification.gateway'
+import { NotificationType } from '@prisma/client'
 import { getDistance } from 'geolib'
 
 @Injectable()
@@ -31,28 +35,45 @@ export class ReportCronService {
 
     constructor(
         private prisma: PrismaService,
-        private reportAssignment: ReportAssignmentService
+        private reportAssignment: ReportAssignmentService,
+        private dispatchLog: DispatchLogService,
+        private notificationService: NotificationService,
+        private notificationGateway: NotificationGateway
     ) { }
+
+    private logAndPersist(level: 'log' | 'debug' | 'error' | 'warn', message: string, meta: Record<string, any> = {}, source: string = 'system') {
+        try {
+            if (level === 'log') this.logger.log(message)
+            else if (level === 'debug') this.logger.debug(message)
+            else if (level === 'warn') this.logger.warn(message)
+            else this.logger.error(message)
+
+            const normalizedMeta = { source, timestamp: new Date().toISOString(), ...meta }
+            this.dispatchLog.create({ level: level.toUpperCase(), message, meta: normalizedMeta }).catch(err => {
+                this.logger.debug('Failed to write dispatch log (non-blocking)', err?.message || err)
+            })
+        } catch (error) {
+            this.logger.debug('logAndPersist failed', error?.message || error)
+        }
+    }
 
     // 🚀 PUBLIC API METHODS - Có thể gọi từ bên ngoài
     async triggerProcessPendingReports(): Promise<{ success: boolean, message: string, data?: any }> {
-        this.logger.debug('🚀 Bắt đầu triggerProcessPendingReports từ external cron')
 
         if (process.env.ENABLE_CRON !== 'true') {
-            this.logger.debug('❌ ENABLE_CRON != true, bỏ qua')
             return { success: false, message: 'Cron is disabled' }
         }
 
         if (ReportCronService.isProcessingPendingReports) {
-            this.logger.debug('⏳ Process đang chạy, bỏ qua lần này')
             return { success: false, message: 'Process already running' }
         }
 
         ReportCronService.isProcessingPendingReports = true
         const startTime = Date.now()
-        this.logger.debug(`⏰ Bắt đầu xử lý lúc ${new Date().toISOString()}`)
 
         try {
+            // Log to DB that external trigger started (non-blocking)
+            this.logAndPersist('log', 'Người dùng/bên ngoài yêu cầu xử lý các báo cáo PENDING', { requestedAt: new Date().toISOString() }, 'external-trigger')
             const pendingReports = await this.prisma.report.findMany({
                 where: {
                     status: 'PENDING',
@@ -81,26 +102,27 @@ export class ReportCronService {
                 }
             })
 
-            this.logger.debug(`📊 Tìm thấy ${pendingReports.length} báo cáo PENDING`)
 
             if (pendingReports.length === 0) {
-                this.logger.debug('📭 Không có báo cáo nào cần xử lý')
+                this.logAndPersist('debug', ' Không có báo cáo nào cần xử lý', {}, 'external-trigger')
                 return { success: true, message: 'No pending reports to process' }
             }
+            this.logAndPersist('debug', `📊 Tìm thấy ${pendingReports.length} báo cáo PENDING`, { found: pendingReports.length }, 'external-trigger')
 
-            this.logger.log(`📋 Đang xử lý ${pendingReports.length} báo cáo ở trạng thái PENDING`)
+
+            this.logAndPersist('log', `📋 Đang xử lý ${pendingReports.length} báo cáo ở trạng thái PENDING`, { total: pendingReports.length }, 'external-trigger')
 
             let processedCount = 0
             let errorCount = 0
 
             for (const report of pendingReports) {
                 try {
-                    this.logger.debug(`🔄 Đang xử lý báo cáo ${report.id}`)
+                    this.logAndPersist('debug', `🔄 Đang xử lý báo cáo ${report.id}`, { reportId: report.id }, 'external-trigger')
                     await this.dispatchSingleReport(report)
                     processedCount++
-                    this.logger.debug(`✅ Báo cáo ${report.id} xử lý thành công`)
+                    this.logAndPersist('debug', `✅ Báo cáo ${report.id} xử lý thành công`, { reportId: report.id }, 'external-trigger')
                 } catch (error) {
-                    this.logger.error(`❌ Xử lý báo cáo ${report.id} thất bại:`, error.message)
+                    this.logAndPersist('error', `❌ Xử lý báo cáo ${report.id} thất bại: ${error?.message || ''}`, { reportId: report.id, error: error?.message || null }, 'external-trigger')
                     errorCount++
                 }
 
@@ -110,119 +132,142 @@ export class ReportCronService {
             const duration = Date.now() - startTime
             const message = `Đã xử lý ${processedCount} báo cáo thành công, ${errorCount} lỗi trong ${duration}ms`
 
-            this.logger.log(`✅ ${message}`)
+            this.logAndPersist('log', `✅ ${message}`, { processedCount, errorCount, duration }, 'external-trigger')
             return { success: true, message, data: { processedCount, errorCount, duration } }
 
         } catch (error) {
-            this.logger.error('💥 Lỗi khi xử lý danh sách PENDING:', error)
+            this.logAndPersist('error', `💥 Lỗi khi xử lý danh sách PENDING: ${error?.message || ''}`, { error: error?.message || null }, 'external-trigger')
             return { success: false, message: 'Internal server error' }
         } finally {
             ReportCronService.isProcessingPendingReports = false
-            this.logger.debug('🔚 Kết thúc triggerProcessPendingReports')
         }
     }
 
     async triggerHandleTimeoutAttempts(): Promise<{ success: boolean, message: string, data?: any }> {
-        this.logger.debug('🚀 Bắt đầu triggerHandleTimeoutAttempts từ external cron')
 
         if (process.env.ENABLE_CRON !== 'true') {
-            this.logger.debug('❌ ENABLE_CRON != true, bỏ qua')
             return { success: false, message: 'Cron is disabled' }
         }
 
         if (ReportCronService.isHandlingTimeoutAttempts) {
-            this.logger.debug('⏳ Timeout handler đang chạy, bỏ qua lần này')
             return { success: false, message: 'Timeout handler already running' }
         }
 
         ReportCronService.isHandlingTimeoutAttempts = true
-        this.logger.debug(`⏰ Bắt đầu xử lý timeout lúc ${new Date().toISOString()}`)
 
         try {
-            this.logger.debug('🔍 Đang tìm các attempt đã timeout...')
+            // Log external trigger for timeout handling
+            this.logAndPersist('log', 'Người dùng/bên ngoài yêu cầu xử lý các attempt đã hết hạn', { requestedAt: new Date().toISOString() }, 'external-trigger')
             await this.reportAssignment.handleTimeoutAttempts()
-            this.logger.debug('✅ Đã xử lý xong các timeout attempts')
-
             const message = 'Đã xử lý các timeout attempts thành công'
-            this.logger.log(`✅ ${message}`)
+            this.logAndPersist('log', `✅ ${message}`, {}, 'external-trigger')
             return { success: true, message }
         } catch (error) {
-            this.logger.error('💥 Lỗi khi xử lý timeout attempts:', error)
+            this.logAndPersist('error', `💥 Lỗi khi xử lý timeout attempts: ${error?.message || ''}`, { error: error?.message || null }, 'external-trigger')
             return { success: false, message: 'Internal server error' }
         } finally {
             ReportCronService.isHandlingTimeoutAttempts = false
-            this.logger.debug('🔚 Kết thúc triggerHandleTimeoutAttempts')
         }
     }
 
-    // @Cron(CronExpression.EVERY_MINUTE)
-    // async processPendingReports() {
-    //     console.log(process.env.ENABLE_CRON)
-    //     if (process.env.ENABLE_CRON !== 'true') return;
-    //     // Global lock: Skip nếu đã có instance đang chạy
-    //     if (ReportCronService.isProcessingPendingReports) {
-    //         this.logger.debug('⏳ processPendingReports đang chạy, bỏ qua lần này')
-    //         return
-    //     }
+    @Cron(CronExpression.EVERY_30_SECONDS)
+    async processPendingReports() {
+        if (process.env.ENABLE_CRON !== 'true') return;
+        // Global lock: Skip nếu đã có instance đang chạy
+        if (ReportCronService.isProcessingPendingReports) {
+            return
+        }
 
-    //     ReportCronService.isProcessingPendingReports = true
+        ReportCronService.isProcessingPendingReports = true
 
-    //     try {
-    //         const pendingReports = await this.prisma.report.findMany({
-    //             where: {
-    //                 status: 'PENDING',
-    //                 deletedAt: null
-    //             },
-    //             select: {
-    //                 id: true,
-    //                 latitude: true,
-    //                 longitude: true,
-    //                 provinceCode: true,
-    //                 districtCode: true,
-    //                 wardCode: true,
-    //                 wasteItems: {
-    //                     select: {
-    //                         weightKg: true,
-    //                         wasteType: true
-    //                     }
-    //                 },
-    //                 reportEnterpriseAttempts: {
-    //                     select: {
-    //                         enterpriseId: true,
-    //                         status: true,
-    //                         sentAt: true
-    //                     }
-    //                 }
-    //             }
-    //         })
+        try {
+            this.logAndPersist('log', `Bắt đầu đăng ký xử lý các báo cáo ở trạng thái PENDING`, { env: process.env.ENABLE_CRON || null }, 'cron-scheduler')
+            const pendingReports = await this.prisma.report.findMany({
+                where: {
+                    status: 'PENDING',
+                    deletedAt: null
+                },
+                select: {
+                    id: true,
+                    latitude: true,
+                    longitude: true,
+                    provinceCode: true,
+                    districtCode: true,
+                    wardCode: true,
+                    wasteItems: {
+                        select: {
+                            weightKg: true,
+                            wasteType: true
+                        }
+                    },
+                    reportEnterpriseAttempts: {
+                        select: {
+                            enterpriseId: true,
+                            status: true,
+                            sentAt: true
+                        }
+                    }
+                }
+            })
 
-    //         if (pendingReports.length === 0) {
-    //             this.logger.debug("Không có đơn xử lý")
-    //             return
-    //         }
+            if (pendingReports.length === 0) {
+                this.logAndPersist('debug', "Không có đơn xử lý", {}, 'cron-scheduler')
+                return
+            }
 
-    //         this.logger.log(`📋 Đang xử lý ${pendingReports.length} báo cáo ở trạng thái PENDING`)
+            this.logAndPersist('log', `📋 Đang xử lý ${pendingReports.length} báo cáo ở trạng thái PENDING`, { total: pendingReports.length }, 'cron-scheduler')
 
-    //         for (const report of pendingReports) {
-    //             try {
-    //                 await this.dispatchSingleReport(report)
-    //             } catch (error) {
-    //                 this.logger.error(`❌ Xử lý báo cáo ${report.id} thất bại:`, error.message)
-    //             }
+            for (const report of pendingReports) {
+                try {
+                    await this.dispatchSingleReport(report)
+                } catch (error) {
+                    this.logAndPersist('error', `❌ Xử lý báo cáo ${report.id} thất bại: ${error?.message || ''}`, { error: error?.message || null, reportId: report.id }, 'cron-scheduler')
+                }
 
-    //             await new Promise(resolve => setTimeout(resolve, 100))
-    //         }
+                await new Promise(resolve => setTimeout(resolve, 100))
+            }
 
-    //     } catch (error) {
-    //         this.logger.error('💥 Lỗi khi xử lý danh sách PENDING:', error)
-    //     } finally {
-    //         // Đảm bảo luôn release lock
-    //         ReportCronService.isProcessingPendingReports = false
-    //     }
-    // }
+        } catch (error) {
+            this.logAndPersist('error', `💥 Lỗi khi xử lý danh sách PENDING: ${error?.message || ''}`, { error: error?.message || null }, 'cron-scheduler')
+        } finally {
+            // Đảm bảo luôn release lock
+            ReportCronService.isProcessingPendingReports = false
+        }
+    }
+
+    @Cron('0 */5 * * * *')
+    async handleTimeoutAttempts() {
+        if (process.env.ENABLE_CRON !== 'true') return;
+        // Global lock: Skip nếu đã có instance đang chạy
+        if (ReportCronService.isHandlingTimeoutAttempts) {
+            return
+        }
+
+        ReportCronService.isHandlingTimeoutAttempts = true
+
+        try {
+            await this.reportAssignment.handleTimeoutAttempts()
+        } catch (error) {
+            this.logAndPersist('error', `💥 Lỗi khi xử lý timeout attempts: ${error?.message || ''}`, { error: error?.message || null }, 'cron-scheduler')
+        } finally {
+            // Đảm bảo luôn release lock
+            ReportCronService.isHandlingTimeoutAttempts = false
+        }
+    }
 
     private async dispatchSingleReport(report: any): Promise<void> {
-        this.logger.debug(`🔍 Bắt đầu xử lý report ${report.id} tại ${report.latitude}, ${report.longitude}`)
+        // ✅ KIỂM TRA: Report có còn hợp lệ không (chưa bị hủy)
+        const currentReport = await this.prisma.report.findUnique({
+            where: { id: report.id },
+            select: { deletedAt: true, status: true }
+        })
+
+        if (currentReport && currentReport.deletedAt) {
+            this.logAndPersist('debug', `🚫 Bỏ qua báo cáo ${report.id} đã bị hủy`, { reportId: report.id }, 'dispatch')
+            return
+        }
+
+        this.logAndPersist('debug', `🔍 Bắt đầu xử lý report ${report.id} tại ${report.latitude}, ${report.longitude}`, { reportId: report.id, lat: report.latitude, lng: report.longitude }, 'dispatch')
         const WAITING_TIMEOUT_MS = 10 * 60 * 1000
 
         const waitingAttempt = report.reportEnterpriseAttempts.find(
@@ -230,53 +275,48 @@ export class ReportCronService {
         )
 
         if (waitingAttempt) {
-            this.logger.debug(`⏳ Report ${report.id} đang có attempt WAITING từ DN ${waitingAttempt.enterpriseId}`)
+            this.logAndPersist('debug', `⏳ Report ${report.id} đang có attempt WAITING từ DN ${waitingAttempt.enterpriseId}`, { reportId: report.id, enterpriseId: waitingAttempt.enterpriseId }, 'dispatch')
             const isExpired =
                 Date.now() - new Date(waitingAttempt.sentAt).getTime() > WAITING_TIMEOUT_MS
 
             if (!isExpired) {
-                this.logger.debug(
-                    `⏸ Báo cáo ${report.id} vẫn đang chờ DN ${waitingAttempt.enterpriseId} phản hồi`
-                )
+                this.logAndPersist('debug', `⏸ Báo cáo ${report.id} vẫn đang chờ DN ${waitingAttempt.enterpriseId} phản hồi`, { reportId: report.id, enterpriseId: waitingAttempt.enterpriseId }, 'dispatch')
                 return
             }
 
-            this.logger.debug(`⏰ Attempt đã timeout, đánh dấu EXPIRED`)
+            this.logAndPersist('debug', `⏰ Attempt đã timeout, đánh dấu EXPIRED`, { reportId: report.id, attemptId: waitingAttempt.id, enterpriseId: waitingAttempt.enterpriseId }, 'dispatch')
             await this.prisma.reportEnterpriseAttempt.update({
                 where: { id: waitingAttempt.id },
                 data: { status: 'EXPIRED' }
             })
 
-            this.logger.warn(
-                `⌛ Báo cáo ${report.id} - DN ${waitingAttempt.enterpriseId} đã hết hạn phản hồi`
-            )
+            this.logAndPersist('warn', `⌛ Báo cáo ${report.id} - DN ${waitingAttempt.enterpriseId} đã hết hạn phản hồi`, { reportId: report.id, enterpriseId: waitingAttempt.enterpriseId, attemptId: waitingAttempt.id }, 'dispatch')
         }
 
-        this.logger.debug(`🏢 Đang tìm DN phù hợp cho report ${report.id}`)
+        this.logAndPersist('debug', `🏢 Đang tìm DN phù hợp cho report ${report.id}`, { reportId: report.id }, 'dispatch')
         const eligibleEnterprises = await this.findEligibleEnterprises(report)
-        this.logger.debug(`📊 Tìm thấy ${eligibleEnterprises.length} DN phù hợp`)
+        this.logAndPersist('debug', `📊 Tìm thấy ${eligibleEnterprises.length} DN phù hợp`, { count: eligibleEnterprises.length }, 'dispatch')
 
         if (eligibleEnterprises.length === 0) {
-            this.logger.debug(`⚠️ Không có DN phù hợp cho báo cáo ${report.id}`)
+            this.logAndPersist('debug', `⚠️ Không có DN phù hợp cho báo cáo ${report.id}`, { reportId: report.id }, 'dispatch')
             return
         }
 
         const attemptedIds = report.reportEnterpriseAttempts.map(
             (a: any) => a.enterpriseId
         )
-        this.logger.debug(`🚫 Đã thử ${attemptedIds.length} DN: [${attemptedIds.join(', ')}]`)
+        this.logAndPersist('debug', `🚫 Đã thử ${attemptedIds.length} DN: [${attemptedIds.join(', ')}]`, { attempted: attemptedIds }, 'dispatch')
 
         const availableEnterprises = eligibleEnterprises.filter(
             e => !attemptedIds.includes(e.id)
         )
-        this.logger.debug(`✅ Còn ${availableEnterprises.length} DN khả dụng`)
+        this.logAndPersist('debug', `✅ Còn ${availableEnterprises.length} DN khả dụng`, { available: availableEnterprises.length }, 'dispatch')
 
         if (availableEnterprises.length === 0) {
-            this.logger.debug(`⚠️ Không còn DN khả dụng cho báo cáo ${report.id}`)
+            this.logAndPersist('debug', `⚠️ Không còn DN khả dụng cho báo cáo ${report.id}`, { reportId: report.id }, 'dispatch')
             return
         }
 
-        this.logger.debug(`📍 Đang tính khoảng cách từ report đến ${availableEnterprises.length} DN...`)
         const allEnterprisesWithDistance = availableEnterprises
             .map(e => ({
                 enterprise: e,
@@ -291,14 +331,12 @@ export class ReportCronService {
 
         const chosenEnterprise = allEnterprisesWithDistance[0].enterprise;
         const distance = allEnterprisesWithDistance[0].distance
-
-        this.logger.debug(`🎯 Chọn DN gần nhất: ${chosenEnterprise.name} (${distance.toFixed(1)}km)`)
+        this.logAndPersist('debug', `🎯 Chọn DN gần nhất: ${chosenEnterprise.name} (${distance.toFixed(1)}km)`, { enterpriseId: chosenEnterprise.id, distance }, 'dispatch')
 
         const nextPriorityOrder =
             report.reportEnterpriseAttempts.length + 1
 
-        this.logger.debug(`📝 Tạo attempt mới với priority ${nextPriorityOrder}`)
-        await this.prisma.reportEnterpriseAttempt.create({
+        const attempt = await this.prisma.reportEnterpriseAttempt.create({
             data: {
                 reportId: report.id,
                 enterpriseId: chosenEnterprise.id,
@@ -309,16 +347,74 @@ export class ReportCronService {
             }
         })
 
-        this.logger.debug(`📱 Đang gửi thông báo tới DN ${chosenEnterprise.id}`)
+        this.logAndPersist('log', `Tạo yêu cầu (attempt) cho báo cáo ${report.id} gửi tới DN ${chosenEnterprise.id}`, { reportId: report.id, attemptId: attempt.id, enterpriseId: chosenEnterprise.id, distance }, 'dispatch')
+
+        // create persisted notification and emit in real-time to enterprise user if available
+        try {
+            const ent = await this.prisma.enterprise.findUnique({
+                where: { id: chosenEnterprise.id },
+                select: { userId: true }
+            })
+            if (ent?.userId) {
+                const notifResponse = await this.notificationService.create({
+                    userId: ent.userId,
+                    type: NotificationType.REPORT_ASSIGNED,
+                    title: 'Bạn được gán đơn',
+                    content: `Có báo cáo mới được gửi tới doanh nghiệp bạn.`,
+                    meta: { reportId: report.id, attemptId: attempt.id }
+                })
+                const notif = notifResponse
+                const payload = { id: notif?.id, title: notif?.title, type: notif?.type, content: notif?.content, meta: notif?.meta, createdAt: notif?.createdAt }
+                this.notificationGateway.notifyUser(ent.userId, payload)
+            }
+        } catch (err) {
+            this.logger.debug('Failed to notify enterprise user', err?.message || err)
+        }
+
+        this.logAndPersist('debug', `📱 Đang gửi thông báo tới DN ${chosenEnterprise.id}`, { enterpriseId: chosenEnterprise.id, reportId: report.id }, 'dispatch')
         await this.sendNotificationToEnterprise(
             chosenEnterprise.id,
             report.id
         )
 
-        this.logger.log(
-            `📤 Báo cáo ${report.id} → DN ${chosenEnterprise.name} (${distance.toFixed(1)}km, priority ${nextPriorityOrder})`
-        )
-        this.logger.debug(`✅ Hoàn thành xử lý report ${report.id}`)
+        this.logAndPersist('log', `📤 Báo cáo ${report.id} → DN ${chosenEnterprise.name} (${distance.toFixed(1)}km, priority ${nextPriorityOrder})`, { reportId: report.id, enterpriseId: chosenEnterprise.id, distance, attemptId: attempt.id }, 'dispatch')
+        this.logAndPersist('debug', `✅ Hoàn thành xử lý report ${report.id}`, { reportId: report.id }, 'dispatch')
+    }
+
+
+    // Public wrapper so admin controller can trigger dispatch for a single report (replay)
+    async triggerDispatchReport(reportId: number) {
+        const report = await this.prisma.report.findUnique({
+            where: { id: reportId },
+            select: {
+                id: true,
+                latitude: true,
+                longitude: true,
+                provinceCode: true,
+                districtCode: true,
+                wardCode: true,
+                wasteItems: {
+                    select: {
+                        weightKg: true,
+                        wasteType: true
+                    }
+                },
+                reportEnterpriseAttempts: {
+                    select: {
+                        id: true,
+                        enterpriseId: true,
+                        status: true,
+                        sentAt: true
+                    }
+                }
+            }
+        })
+
+        if (!report) {
+            throw new Error('Report not found')
+        }
+
+        await this.dispatchSingleReport(report)
     }
 
 
@@ -350,6 +446,7 @@ export class ReportCronService {
             },
             select: { id: true }
         })
+        console.log(enterpriseIds)
 
         if (enterpriseIds.length === 0) return []
 
@@ -416,26 +513,7 @@ export class ReportCronService {
         return enterprisesWithServiceAreas
     }
 
-    // @Cron('0 */5 * * * *')
-    // async handleTimeoutAttempts() {
-    //     if (process.env.ENABLE_CRON !== 'true') return;
-    //     // Global lock: Skip nếu đã có instance đang chạy
-    //     if (ReportCronService.isHandlingTimeoutAttempts) {
-    //         this.logger.debug('⏳ handleTimeoutAttempts đang chạy, bỏ qua lần này')
-    //         return
-    //     }
 
-    //     ReportCronService.isHandlingTimeoutAttempts = true
-
-    //     try {
-    //         await this.reportAssignment.handleTimeoutAttempts()
-    //     } catch (error) {
-    //         this.logger.error('💥 Lỗi khi xử lý timeout attempts:', error)
-    //     } finally {
-    //         // Đảm bảo luôn release lock
-    //         ReportCronService.isHandlingTimeoutAttempts = false
-    //     }
-    // }
 
 
     private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -449,6 +527,6 @@ export class ReportCronService {
 
 
     private async sendNotificationToEnterprise(enterpriseId: number, reportId: number): Promise<void> {
-        this.logger.log(`📱 Đã gửi thông báo tới doanh nghiệp ${enterpriseId} cho báo cáo ${reportId}`)
+        this.logAndPersist('log', `📱 Đã gửi thông báo tới doanh nghiệp ${enterpriseId} cho báo cáo ${reportId}`, { enterpriseId, reportId }, 'notification')
     }
 }

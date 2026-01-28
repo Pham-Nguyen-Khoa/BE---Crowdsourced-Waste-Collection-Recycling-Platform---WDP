@@ -90,7 +90,82 @@ export const resourcesV1 = {
     GET_ALL_REPORT_WAITING: {
         name: 'Get All Report Waiting',
         displayName: 'Lấy tất cả đơn báo cáo rác đang đợi phản hồi ',
-        parent: 'Enterprise-Reports',
+        parent: 'Enterprise',
+    },
+    GET_DETAIL_REPORT_WAITING: {
+        name: 'Get Detail Report Waiting',
+        displayName: 'Lấy chi tiết đơn báo cáo rác đang đợi phản hồi ',
+        parent: 'Enterprise',
+    },
+    CREATE_COLLECTOR: {
+        name: 'Create Collector',
+        displayName: 'Tạo người thu gom rác',
+        parent: 'Enterprise',
+    },
+
+
+    // Notification
+    NOTIFICATION: {
+        name: 'Notification',
+        displayName: 'Thông báo',
+        parent: 'Notification',
+    },
+    CREATE_NOTIFICATION: {
+        name: 'Create Notification',
+        displayName: 'Tạo thông báo mới',
+        parent: 'Notification',
+    },
+    GET_NOTIFICATIONS: {
+        name: 'Get Notifications',
+        displayName: 'Lấy danh sách thông báo',
+        parent: 'Notification',
+    },
+    MARK_READ_NOTIFICATION: {
+        name: 'Mark Read Notification',
+        displayName: 'Đánh dấu đã đọc thông báo',
+        parent: 'Notification',
+    },
+    BROADCAST_NOTIFICATION: {
+        name: 'Broadcast Notification',
+        displayName: 'Gửi thông báo cho nhiều người',
+        parent: 'Notification',
+    },
+    BROADCAST_ALL_NOTIFICATION: {
+        name: 'Broadcast All Notification',
+        displayName: 'Gửi thông báo cho tất cả người dùng',
+        parent: 'Notification',
+    },
+    BROADCAST_BY_ROLE_NOTIFICATION: {
+        name: 'Broadcast By Role Notification',
+        displayName: 'Gửi thông báo theo role',
+        parent: 'Notification',
+    },
+
+    // Profile
+    PROFILE: {
+        name: 'Profile',
+        displayName: 'Hồ sơ người dùng',
+        parent: 'Profile',
+    },
+    GET_PROFILE: {
+        name: 'Get Profile',
+        displayName: 'Xem hồ sơ cá nhân',
+        parent: 'Profile',
+    },
+    UPDATE_PROFILE: {
+        name: 'Update Profile',
+        displayName: 'Cập nhật hồ sơ',
+        parent: 'Profile',
+    },
+    UPLOAD_AVATAR: {
+        name: 'Upload Avatar',
+        displayName: 'Tải lên ảnh đại diện',
+        parent: 'Profile',
+    },
+    CHANGE_PASSWORD: {
+        name: 'Change Password',
+        displayName: 'Đổi mật khẩu',
+        parent: 'Profile',
     },
 
 };
