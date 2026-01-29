@@ -15,12 +15,19 @@ import { DispatchLogController } from './controllers/dispatch-log.controller'
 import { NotificationService } from '../notification/services/notification.service'
 import { NotificationGateway } from '../notification/gateways/notification.gateway'
 import { CreateReportService } from './services/create-report.service'
+import { GetAllReportController } from './controllers/get-all-report.controller'
+import { GetAllReportService } from './services/get-all-report.service'
+import { GetDetailReportController } from './controllers/get-detail-report.controller'
+import { GetDetailReportService } from './services/get-detail-report.service'
 
 
 const httpController = [
+  GetAllReportController,
+  GetDetailReportController,
   CreateReportController,
   CronController,
-  DispatchLogController
+  DispatchLogController,
+
 ]
 
 
@@ -38,6 +45,8 @@ const Services = [
   SupabaseService,
   MailerService,
   JwtService,
+  GetAllReportService,
+  GetDetailReportService
 ]
 
 

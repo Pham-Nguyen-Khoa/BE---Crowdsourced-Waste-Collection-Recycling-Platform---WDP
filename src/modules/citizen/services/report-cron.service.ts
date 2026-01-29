@@ -446,7 +446,6 @@ export class ReportCronService {
             },
             select: { id: true }
         })
-        console.log(enterpriseIds)
 
         if (enterpriseIds.length === 0) return []
 
