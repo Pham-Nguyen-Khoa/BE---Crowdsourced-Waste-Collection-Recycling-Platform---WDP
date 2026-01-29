@@ -63,6 +63,6 @@ const Services = [
     ...Services,
     ...Repository,
   ],
-  exports: [CreateReportService],
+  exports: [CreateReportService,ReportAssignmentService],
 })
 export class CitizenModule { }
