@@ -478,6 +478,7 @@ export class EnterpriseService {
                         },
                     }
                 }
+
             },
             orderBy: {
                 sentAt: 'desc'
@@ -487,6 +488,7 @@ export class EnterpriseService {
         const reports = waitingAttempts.map(attempt => ({
             ...attempt.report,
             sentAt: attempt.sentAt,
+            expiredAt: attempt.expiredAt,
             attemptId: attempt.id
         }))
 
