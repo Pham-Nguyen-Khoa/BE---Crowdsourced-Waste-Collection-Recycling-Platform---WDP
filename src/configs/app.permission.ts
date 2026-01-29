@@ -97,11 +97,33 @@ export const resourcesV1 = {
         displayName: 'Lấy chi tiết đơn báo cáo rác đang đợi phản hồi ',
         parent: 'Enterprise',
     },
+    // Collector
     CREATE_COLLECTOR: {
         name: 'Create Collector',
         displayName: 'Tạo người thu gom rác',
-        parent: 'Enterprise',
+        parent: 'Collector',
     },
+    GET_COLLECTORS: {
+        name: 'Get Collectors',
+        displayName: 'Lấy danh sách collector',
+        parent: 'Collector',
+    },
+    GET_COLLECTOR_DETAIL: {
+        name: 'Get Collector Detail',
+        displayName: 'Lấy chi tiết collector',
+        parent: 'Collector',
+    },
+    UPDATE_COLLECTOR: {
+        name: 'Update Collector',
+        displayName: 'Cập nhật collector',
+        parent: 'Collector',
+    },
+    DELETE_COLLECTOR: {
+        name: 'Delete Collector',
+        displayName: 'Xóa collector',
+        parent: 'Collector',
+    },
+
 
 
     // Notification
@@ -166,6 +188,23 @@ export const resourcesV1 = {
         name: 'Change Password',
         displayName: 'Đổi mật khẩu',
         parent: 'Profile',
+    },
+
+    // Admin
+    GET_ENTERPRISES_MAP: {
+        name: 'Get Enterprises Map',
+        displayName: 'Lấy danh sách doanh nghiệp trên bản đồ',
+        parent: 'Admin',
+    },
+    GET_ENTERPRISE_DETAIL_MAP: {
+        name: 'Get Enterprise Detail Map',
+        displayName: 'Lấy chi tiết doanh nghiệp trên bản đồ',
+        parent: 'Admin',
+    },
+    TOGGLE_ORDER_ACCEPTANCE: {
+        name: 'Toggle Order Acceptance',
+        displayName: 'Bật/tắt trạng thái nhận đơn',
+        parent: 'Enterprise',
     },
 
 };

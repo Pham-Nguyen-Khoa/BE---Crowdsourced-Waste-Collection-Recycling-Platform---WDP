@@ -68,7 +68,16 @@ export const routesV1 = {
         waiting: `${enterprise}/reports/waiting`,
         getDetailWaiting: `${enterprise}/reports/waiting/:id`,
 
+        // Collector management
         createCollector: `${enterprise}/collectors`,
+        getCollectors: `${enterprise}/collectors`,
+        getCollectorDetail: `${enterprise}/collectors/:id`,
+        updateCollector: `${enterprise}/collectors/:id`,
+        deleteCollector: `${enterprise}/collectors/:id`,
+
+        // Order acceptance
+        toggleOrderAcceptance: `${enterprise}/order-acceptance`,
+        getOrderAcceptanceStatus: `${enterprise}/order-acceptance`,
     },
     citizen: {
         // Report management
@@ -84,6 +93,12 @@ export const routesV1 = {
         broadcast: `${notification}/broadcast`,
         broadcastAll: `${notification}/broadcast/all`,
         broadcastByRole: `${notification}/broadcast/role`,
+    },
+
+    // Admin
+    admin: {
+        enterprisesMap: `admin/enterprises/map`,
+        enterpriseDetailMap: `admin/enterprises/:id/map`,
     },
 
 }

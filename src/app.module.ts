@@ -6,6 +6,8 @@ import { SupabaseModule } from './modules/supabase/supabase.module';
 import { CitizenModule } from './modules/citizen/citizen.module';
 import { NotificationModule } from './modules/notification/notification.module';
 import { ProfileModule } from './modules/profile/profile.module';
+import { CollectorModule } from './modules/collector/collector.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { ProfileModule } from './modules/profile/profile.module';
     CitizenModule,
     NotificationModule,
     ProfileModule,
+    CollectorModule,
+    AdminModule,
 
     /* ---------------- End Module---------------- */
   ],

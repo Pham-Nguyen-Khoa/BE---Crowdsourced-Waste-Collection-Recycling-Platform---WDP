@@ -14,6 +14,8 @@ import { JwtService } from '@nestjs/jwt';
 import { GetAllReportWaitingController } from './controllers/get-all-report-waiting.controller';
 import { GetDetailReportWaitingController } from './controllers/get-detail-report-waiting.controller';
 import { GetDetailReportWaitingService } from './services/get-detail-report-waiting.service';
+import { ToggleOrderAcceptanceController } from './controllers/toggle-order-acceptance.controller';
+import { ToggleOrderAcceptanceService } from './services/toggle-order-acceptance.service';
 
 
 const httpController = [
@@ -21,7 +23,8 @@ const httpController = [
     EnterpriseAcceptedController,
     EnterpriseRejectedController,
     GetAllReportWaitingController,
-    GetDetailReportWaitingController
+    GetDetailReportWaitingController,
+    ToggleOrderAcceptanceController,
 ]
 
 
@@ -34,6 +37,7 @@ const Services = [
     EnterpriseScheduler,
     ReportAssignmentService,
     GetDetailReportWaitingService,
+    ToggleOrderAcceptanceService,
 
     MailerService,
     JwtService,
@@ -43,6 +47,6 @@ const Services = [
     imports: [PrismaModule, AuthModule],
     controllers: [...httpController],
     providers: [...Services, ...Repository],
-    exports: [EnterpriseService, EnterpriseRepository]
+    exports: [EnterpriseService, EnterpriseRepository, ToggleOrderAcceptanceService]
 })
 export class EnterpriseModule { }
