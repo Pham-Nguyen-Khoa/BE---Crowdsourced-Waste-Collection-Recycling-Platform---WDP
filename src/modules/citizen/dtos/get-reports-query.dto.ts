@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from "@nestjs/swagger";
 import { IsOptional, IsEnum, IsNumber } from "class-validator";
 import { Type } from "class-transformer";
-import { ReportStatus } from "@prisma/client";
+import { ReportStatus } from "generated/prisma/enums";
 
 export class GetReportsQueryDto {
     @ApiPropertyOptional({ enum: ReportStatus, description: 'Lọc theo trạng thái đơn' })
