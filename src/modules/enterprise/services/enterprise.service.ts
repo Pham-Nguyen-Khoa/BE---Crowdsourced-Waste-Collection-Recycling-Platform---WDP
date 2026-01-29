@@ -462,7 +462,7 @@ export class EnterpriseService {
             where: {
                 enterpriseId,
                 status: {
-                    in: ['WAITING', 'ACCEPTED', 'CANCELLED']
+                    in: ['WAITING', 'ACCEPTED', 'CANCELLED','EXPIRED']
                 }
             },
             include: {

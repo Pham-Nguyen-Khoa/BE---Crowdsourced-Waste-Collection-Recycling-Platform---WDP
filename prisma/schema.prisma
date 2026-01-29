@@ -326,7 +326,7 @@ model Subscription {
 //////////////////////////
 
 model Collector {
-  id           Int       @id
+  id           Int       @id   @default(autoincrement())
   userId       Int       @unique
   enterpriseId Int
   createdAt    DateTime  @default(now())
