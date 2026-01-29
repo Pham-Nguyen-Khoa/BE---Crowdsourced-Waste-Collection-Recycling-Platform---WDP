@@ -180,7 +180,8 @@ export class ReportAssignmentService {
         const timeoutAttempts = await this.prisma.reportEnterpriseAttempt.findMany({
             where: {
                 status: 'WAITING',
-                sentAt: { lt: tenMinutesAgo }
+                expiredAt: { lte: new Date() }
+                // sentAt: { lt: tenMinutesAgo }
             },
             include: {
                 report: {
