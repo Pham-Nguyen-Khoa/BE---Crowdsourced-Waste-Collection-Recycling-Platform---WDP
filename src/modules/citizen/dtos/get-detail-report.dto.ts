@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { ReportStatus } from "@prisma/client";
+import { ReportStatus } from "generated/prisma/enums";
 
 /**
  * Waste item trong report

@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 import { IsNotEmpty, IsNumber, IsOptional, IsString, IsEnum, IsArray, ArrayMinSize } from 'class-validator'
 import { Transform } from 'class-transformer'
-import { NotificationType } from '@prisma/client'
+import { NotificationType } from 'generated/prisma/enums'
 
 
 

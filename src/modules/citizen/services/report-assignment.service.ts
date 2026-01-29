@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../../libs/prisma/prisma.service'
 import { errorResponse, successResponse } from 'src/common/utils/response.util'
 import { NotificationGateway } from '../../notification/gateways/notification.gateway'
-import { NotificationType } from '@prisma/client'
+import { NotificationType } from 'generated/prisma/enums'
 
 @Injectable()
 export class ReportAssignmentService {

@@ -20,8 +20,8 @@ import { ReportAssignmentService } from './report-assignment.service'
 import { DispatchLogService } from './dispatch-log.service'
 import { NotificationService } from '../../notification/services/notification.service'
 import { NotificationGateway } from '../../notification/gateways/notification.gateway'
-import { NotificationType } from '@prisma/client'
 import { getDistance } from 'geolib'
+import { NotificationType } from 'generated/prisma/enums'
 
 @Injectable()
 export class ReportCronService {
