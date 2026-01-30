@@ -43,7 +43,9 @@ export class GetAllReportService {
                     skip,
                     take: limit,
                     orderBy: { createdAt: 'desc' },
-
+                    include: {
+                        wasteItems: true,
+                    }
                 }),
                 this.prisma.report.count({ where })
             ]);
@@ -57,6 +59,10 @@ export class GetAllReportService {
                 districtCode: report.districtCode,
                 wardCode: report.wardCode,
                 description: report.description,
+                wasteItems: report.wasteItems.map(w => ({
+                    wasteType: w.wasteType,
+                    weightKg: Number(w.weightKg)
+                })),
                 createdAt: report.createdAt,
                 cancelReason: report.cancelReason,
 

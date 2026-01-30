@@ -361,15 +361,15 @@ model Report {
   currentEnterpriseId Int?
 
   address   String @db.Text
-  latitude  Float // Range: -90 to 90
-  longitude Float // Range: -180 to 180
+  latitude  Float 
+  longitude Float 
 
   provinceCode String       @db.VarChar(10)
   districtCode String       @db.VarChar(10)
   wardCode     String       @db.VarChar(10)
   description  String?      @db.Text
   status       ReportStatus @default(PENDING)
-  sentAt       DateTime? // Timestamp when notification was sent to enterprise
+  sentAt       DateTime? 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   cancelReason String?      @db.Text

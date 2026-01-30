@@ -105,7 +105,6 @@ export class ReportAssignmentService {
                 }
             })
 
-            // Gửi qua socket
             this.notificationGateway.notifyUser(report.citizenId, {
                 id: notification.id,
                 type: notification.type,

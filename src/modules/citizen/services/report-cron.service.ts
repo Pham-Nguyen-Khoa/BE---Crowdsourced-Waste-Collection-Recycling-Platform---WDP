@@ -238,7 +238,6 @@ export class ReportCronService {
     @Cron('0 */5 * * * *')
     async handleTimeoutAttempts() {
         if (process.env.ENABLE_CRON !== 'true') return;
-        // Global lock: Skip nếu đã có instance đang chạy
         if (ReportCronService.isHandlingTimeoutAttempts) {
             return
         }
@@ -248,15 +247,12 @@ export class ReportCronService {
         try {
             await this.reportAssignment.handleTimeoutAttempts()
         } catch (error) {
-            this.logAndPersist('error', `💥 Lỗi khi xử lý timeout attempts: ${error?.message || ''}`, { error: error?.message || null }, 'cron-scheduler')
         } finally {
-            // Đảm bảo luôn release lock
             ReportCronService.isHandlingTimeoutAttempts = false
         }
     }
 
     private async dispatchSingleReport(report: any): Promise<void> {
-        // ✅ KIỂM TRA: Report có còn hợp lệ không (chưa bị hủy)
         const currentReport = await this.prisma.report.findUnique({
             where: { id: report.id },
             select: { deletedAt: true, status: true }
@@ -349,7 +345,6 @@ export class ReportCronService {
 
         this.logAndPersist('log', `Tạo yêu cầu (attempt) cho báo cáo ${report.id} gửi tới DN ${chosenEnterprise.id}`, { reportId: report.id, attemptId: attempt.id, enterpriseId: chosenEnterprise.id, distance }, 'dispatch')
 
-        // create persisted notification and emit in real-time to enterprise user if available
         try {
             const ent = await this.prisma.enterprise.findUnique({
                 where: { id: chosenEnterprise.id },
@@ -371,14 +366,14 @@ export class ReportCronService {
             this.logger.debug('Failed to notify enterprise user', err?.message || err)
         }
 
-        this.logAndPersist('debug', `📱 Đang gửi thông báo tới DN ${chosenEnterprise.id}`, { enterpriseId: chosenEnterprise.id, reportId: report.id }, 'dispatch')
+        this.logAndPersist('debug', ` Đang gửi thông báo tới DN ${chosenEnterprise.id}`, { enterpriseId: chosenEnterprise.id, reportId: report.id }, 'dispatch')
         await this.sendNotificationToEnterprise(
             chosenEnterprise.id,
             report.id
         )
 
-        this.logAndPersist('log', `📤 Báo cáo ${report.id} → DN ${chosenEnterprise.name} (${distance.toFixed(1)}km, priority ${nextPriorityOrder})`, { reportId: report.id, enterpriseId: chosenEnterprise.id, distance, attemptId: attempt.id }, 'dispatch')
-        this.logAndPersist('debug', `✅ Hoàn thành xử lý report ${report.id}`, { reportId: report.id }, 'dispatch')
+        this.logAndPersist('log', ` Báo cáo ${report.id} → DN ${chosenEnterprise.name} (${distance.toFixed(1)}km, priority ${nextPriorityOrder})`, { reportId: report.id, enterpriseId: chosenEnterprise.id, distance, attemptId: attempt.id }, 'dispatch')
+        this.logAndPersist('debug', ` Hoàn thành xử lý report ${report.id}`, { reportId: report.id }, 'dispatch')
     }
 
 
