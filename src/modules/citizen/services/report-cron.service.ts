@@ -461,35 +461,50 @@ export class ReportCronService {
 
         const wasteTypeIds = enterprisesWithWasteTypes.map(e => e.id)
 
+        // Chuẩn hóa mã địa giới thành string (FE có thể gửi number 75, 731, 11111; DB lưu string)
+        const province = String(report.provinceCode ?? '')
+        const district = report.districtCode != null ? String(report.districtCode) : null
+        const ward = report.wardCode != null ? String(report.wardCode) : null
+
         // Tách riêng service areas check
+        // Match: (1) đúng tỉnh-huyện-xã, (2) đúng tỉnh-huyện (wardCode DN = null = phục vụ cả huyện), (3) đúng tỉnh (district+ward DN = null)
         const enterprisesWithServiceAreas = await this.prisma.enterprise.findMany({
             where: {
                 id: { in: wasteTypeIds },
                 OR: [
-                    {
-                        serviceAreas: {
-                            some: {
-                                provinceCode: report.provinceCode,
-                                districtCode: report.districtCode,
-                                wardCode: report.wardCode
+                    // Đúng tỉnh + huyện + xã
+                    ...(ward
+                        ? [{
+                            serviceAreas: {
+                                some: {
+                                    provinceCode: province,
+                                    districtCode: district ?? undefined,
+                                    wardCode: ward
+                                }
                             }
-                        }
-                    },
-                    {
-                        serviceAreas: {
-                            some: {
-                                provinceCode: report.provinceCode,
-                                districtCode: report.districtCode,
-                                wardCode: null
+                        }]
+                        : []
+                    ),
+                    // Đúng tỉnh + huyện, DN phục vụ cả huyện (wardCode = null)
+                    ...(district
+                        ? [{
+                            serviceAreas: {
+                                some: {
+                                    provinceCode: province,
+                                    districtCode: district,
+                                    wardCode: { equals: null }
+                                }
                             }
-                        }
-                    },
+                        }]
+                        : []
+                    ),
+                    // Đúng tỉnh, DN phục vụ cả tỉnh (districtCode + wardCode = null)
                     {
                         serviceAreas: {
                             some: {
-                                provinceCode: report.provinceCode,
-                                districtCode: null,
-                                wardCode: null
+                                provinceCode: province,
+                                districtCode: { equals: null },
+                                wardCode: { equals: null }
                             }
                         }
                     }

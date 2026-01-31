@@ -39,8 +39,8 @@ export class EnterpriseController {
 
     @ApiOperation({ summary: resourcesV1.GET_PAYMENT.displayName })
     @ApiBearerAuth()
-    @UseGuards(JWTGuard, PermissionGuard)
-    @Permissions('REGISTER_ENTERPRISE')
+    // @UseGuards(JWTGuard, PermissionGuard)
+    // @Permissions('REGISTER_ENTERPRISE')
     @Get(routesV1.enterprise.getPayment.replace(':referenceCode', ':referenceCode'))
     async getPayment(@Param('referenceCode') referenceCode: string, @GetUser() user) {
         return await this.enterpriseService.getPayment(referenceCode, user.id);
@@ -65,8 +65,8 @@ export class EnterpriseController {
     }
 
     @ApiOperation({ summary: resourcesV1.TEST_PAYMENT.displayName })
-    @UseGuards(JWTGuard, PermissionGuard)
-    @Permissions('REGISTER_ENTERPRISE')
+    // @UseGuards(JWTGuard, PermissionGuard)
+    // @Permissions('REGISTER_ENTERPRISE')
     @Post(routesV1.enterprise.testWebhook)
     async testPaymentSuccess(@Param('referenceCode') referenceCode: string) {
         return await this.enterpriseService.testPaymentSuccess(referenceCode);
