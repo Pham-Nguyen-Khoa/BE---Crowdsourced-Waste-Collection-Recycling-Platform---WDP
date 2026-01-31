@@ -102,20 +102,17 @@ export class EnterpriseService {
     }
 
     async getPayment(referenceCode: string, userId?: number) {
-        try {
-            const payment = await this.enterpriseRepository.findPaymentByReferenceCode(referenceCode);
-            if (!payment) {
-                return errorResponse(404, 'Không tìm thấy thông tin thanh toán', 'PAYMENT_NOT_FOUND');
-            }
-
-            if (userId && payment.userId !== userId) {
-                return errorResponse(403, 'Không có quyền truy cập', 'FORBIDDEN');
-            }
-
-            return successResponse(200, payment);
-        } catch (error) {
-            return errorResponse(500, 'Lỗi hệ thống', 'INTERNAL_ERROR');
+        const payment = await this.enterpriseRepository.findPaymentByReferenceCode(referenceCode);
+        if (!payment) {
+            return errorResponse(400, 'Không tìm thấy thông tin thanh toán', 'PAYMENT_NOT_FOUND');
         }
+
+        if (userId && payment.userId !== userId) {
+            return errorResponse(400, 'Không có quyền truy cập', 'FORBIDDEN');
+        }
+
+        return successResponse(200, payment);
+
     }
 
     async cancelPayment(referenceCode: string, userId: number) {

@@ -1,6 +1,6 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { routesV1 } from 'src/configs/app.routes';
-import { resourcesV1 } from 'src/configs/app.permission';
+import { resourcesV1, PermissionCode } from 'src/configs/app.permission';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CreateNotificationDto } from '../dtos/create-notification.dto';
 import { NotificationService } from '../services/notification.service';
@@ -17,7 +17,7 @@ export class CreateNotificationController {
     @ApiOperation({ summary: resourcesV1.CREATE_NOTIFICATION.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard, PermissionGuard)
-    @Permissions('CREATE_NOTIFICATION')
+    @Permissions(PermissionCode.CREATE_NOTIFICATION)
     @Post(routesV1.notification.create)
     async create(@Body() dto: CreateNotificationDto) {
         return await this.notificationService.create(dto);

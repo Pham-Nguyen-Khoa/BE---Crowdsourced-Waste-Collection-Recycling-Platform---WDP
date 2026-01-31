@@ -60,9 +60,6 @@ export class ReportCronService {
     // 🚀 PUBLIC API METHODS - Có thể gọi từ bên ngoài
     async triggerProcessPendingReports(): Promise<{ success: boolean, message: string, data?: any }> {
 
-        if (process.env.ENABLE_CRON !== 'true') {
-            return { success: false, message: 'Cron is disabled' }
-        }
 
         if (ReportCronService.isProcessingPendingReports) {
             return { success: false, message: 'Process already running' }
@@ -144,10 +141,6 @@ export class ReportCronService {
     }
 
     async triggerHandleTimeoutAttempts(): Promise<{ success: boolean, message: string, data?: any }> {
-
-        if (process.env.ENABLE_CRON !== 'true') {
-            return { success: false, message: 'Cron is disabled' }
-        }
 
         if (ReportCronService.isHandlingTimeoutAttempts) {
             return { success: false, message: 'Timeout handler already running' }
@@ -235,7 +228,7 @@ export class ReportCronService {
         }
     }
 
-    @Cron('0 */5 * * * *')
+    @Cron('0 */2 * * * *')
     async handleTimeoutAttempts() {
         if (process.env.ENABLE_CRON !== 'true') return;
         if (ReportCronService.isHandlingTimeoutAttempts) {

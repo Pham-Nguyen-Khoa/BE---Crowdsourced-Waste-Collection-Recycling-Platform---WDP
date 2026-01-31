@@ -1,7 +1,7 @@
 import { Body, Controller, Post, UseGuards } from "@nestjs/common";
 import { ApiBearerAuth, ApiOperation, ApiTags } from "@nestjs/swagger";
 import { routesV1 } from "src/configs/app.routes";
-import { resourcesV1 } from "src/configs/app.permission";
+import { resourcesV1, PermissionCode } from "src/configs/app.permission";
 import { JWTGuard } from "src/modules/auth/guards/jwt.guard";
 import { GetUser } from "src/modules/auth/guards/get-user.decorator";
 import { User } from "generated/prisma/client";
@@ -21,7 +21,7 @@ export class CreateCollectorController {
     @ApiBearerAuth()
     @UseGuards(JWTGuard, RolesGuard, PermissionGuard)
     @Roles(2)
-    @Permissions('CREATE_COLLECTOR')
+    @Permissions(PermissionCode.CREATE_COLLECTOR)
     @Post(routesV1.enterprise.createCollector)
     async createCollector(
         @GetUser() user: User,

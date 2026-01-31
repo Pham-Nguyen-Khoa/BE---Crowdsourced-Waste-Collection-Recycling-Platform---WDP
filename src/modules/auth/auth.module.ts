@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { LoginController } from './controllers/login.controller';
-import { UserController } from './controllers/user.controller';
 import { SignupController } from './controllers/signup.controller';
 import { RefreshController } from './controllers/refresh.controller';
 import { ForgotController } from './controllers/forgot.controller';
@@ -20,7 +19,6 @@ import { PrismaModule } from 'src/libs/prisma/prisma.module';
 
 const httpController = [
     LoginController,
-    UserController,
     SignupController,
     RefreshController,
     ForgotController,

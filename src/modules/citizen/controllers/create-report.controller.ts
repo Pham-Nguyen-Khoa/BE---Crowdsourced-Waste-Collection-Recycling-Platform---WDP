@@ -2,7 +2,7 @@ import { Body, Controller, Post, UseGuards, UseInterceptors, UploadedFiles, Dele
 import { FilesInterceptor } from '@nestjs/platform-express'
 import { ApiOperation, ApiResponse, ApiTags, ApiConsumes, ApiBody, ApiBearerAuth } from '@nestjs/swagger'
 import { routesV1 } from 'src/configs/app.routes'
-import { resourcesV1 } from 'src/configs/app.permission'
+import { resourcesV1, PermissionCode } from 'src/configs/app.permission'
 import { Permissions } from '../../auth/guards/permission.decorator'
 import { JWTGuard } from '../../auth/guards/jwt.guard'
 import { PermissionGuard } from '../../auth/guards/permissions.guard'
@@ -21,7 +21,7 @@ export class CreateReportController {
     @ApiConsumes('multipart/form-data')
     @ApiBearerAuth()
     @UseGuards(JWTGuard, PermissionGuard)
-    @Permissions('CREATE_REPORT')
+    @Permissions(PermissionCode.CREATE_REPORT)
     @UseInterceptors(FilesInterceptor('files'))
     @Post(routesV1.citizen.createReport)
     async createReport(

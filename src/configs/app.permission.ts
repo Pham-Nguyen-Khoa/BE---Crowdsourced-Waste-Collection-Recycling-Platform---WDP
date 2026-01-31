@@ -1,3 +1,19 @@
+/**
+ * Permission codes - single source of truth.
+ * Đồng bộ với cột `code` trong bảng permission (DB).
+ * Dùng trong @Permissions() thay vì hardcode string.
+ */
+export const PermissionCode = {
+    CREATE_REPORT: 'CREATE_REPORT',
+    REGISTER_ENTERPRISE: 'REGISTER_ENTERPRISE',
+    CREATE_NOTIFICATION: 'CREATE_NOTIFICATION',
+    CREATE_COLLECTOR: 'CREATE_COLLECTOR',
+    DELETE_COLLECTOR: 'DELETE_COLLECTOR',
+    UPDATE_COLLECTOR: 'UPDATE_COLLECTOR',
+} as const;
+
+export type PermissionCodeType = (typeof PermissionCode)[keyof typeof PermissionCode];
+
 export const resourcesV1 = {
     //  Auth
     LOGIN: {

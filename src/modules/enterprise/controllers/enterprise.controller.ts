@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Delete, Param, UseGuards, Put } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { routesV1 } from 'src/configs/app.routes';
-import { resourcesV1 } from 'src/configs/app.permission';
+import { resourcesV1, PermissionCode } from 'src/configs/app.permission';
 import { CreateEnterpriseDto } from '../dtos/create-enterprise.dto';
 import { UpdateEnterpriseDto } from '../dtos/update-enterprise.dto';
 import { CreatePaymentDto } from '../dtos/create-payment.dto';
@@ -30,7 +30,7 @@ export class EnterpriseController {
     @ApiOperation({ summary: resourcesV1.REGISTER_ENTERPRISE.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard, PermissionGuard)
-    @Permissions('REGISTER_ENTERPRISE')
+    @Permissions(PermissionCode.REGISTER_ENTERPRISE)
     @Post(routesV1.enterprise.register)
     async registerAndCreatePayment(@GetUser() user: User, @Body() dto: CreateEnterpriseDto) {
         return await this.enterpriseService.registerAndCreatePayment(user.id, dto);
@@ -39,8 +39,7 @@ export class EnterpriseController {
 
     @ApiOperation({ summary: resourcesV1.GET_PAYMENT.displayName })
     @ApiBearerAuth()
-    // @UseGuards(JWTGuard, PermissionGuard)
-    // @Permissions('REGISTER_ENTERPRISE')
+    @UseGuards(JWTGuard)
     @Get(routesV1.enterprise.getPayment.replace(':referenceCode', ':referenceCode'))
     async getPayment(@Param('referenceCode') referenceCode: string, @GetUser() user) {
         return await this.enterpriseService.getPayment(referenceCode, user.id);
@@ -51,7 +50,7 @@ export class EnterpriseController {
     @ApiOperation({ summary: resourcesV1.CANCEL_PAYMENT.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard, PermissionGuard)
-    @Permissions('REGISTER_ENTERPRISE')
+    @Permissions(PermissionCode.REGISTER_ENTERPRISE)
     @Delete(routesV1.enterprise.cancelPayment.replace(':referenceCode', ':referenceCode'))
     async cancelPayment(@Param('referenceCode') referenceCode: string, @GetUser() user) {
         return await this.enterpriseService.cancelPayment(referenceCode, user.id);
@@ -66,7 +65,7 @@ export class EnterpriseController {
 
     @ApiOperation({ summary: resourcesV1.TEST_PAYMENT.displayName })
     // @UseGuards(JWTGuard, PermissionGuard)
-    // @Permissions('REGISTER_ENTERPRISE')
+    // @Permissions(PermissionCode.REGISTER_ENTERPRISE)
     @Post(routesV1.enterprise.testWebhook)
     async testPaymentSuccess(@Param('referenceCode') referenceCode: string) {
         return await this.enterpriseService.testPaymentSuccess(referenceCode);
