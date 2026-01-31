@@ -170,7 +170,7 @@ export class ReportCronService {
         }
     }
 
-    @Cron(CronExpression.EVERY_30_SECONDS)
+    @Cron(CronExpression.EVERY_MINUTE)
     async processPendingReports() {
         if (process.env.ENABLE_CRON !== 'true') return;
         // Global lock: Skip nếu đã có instance đang chạy

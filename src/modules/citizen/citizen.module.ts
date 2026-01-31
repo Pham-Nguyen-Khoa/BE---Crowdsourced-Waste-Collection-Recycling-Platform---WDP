@@ -54,7 +54,7 @@ const Services = [
 @Module({
   imports: [
     PrismaModule,
-    // ScheduleModule.forRoot(),
+    ScheduleModule.forRoot(),
     AuthModule
 
   ],
