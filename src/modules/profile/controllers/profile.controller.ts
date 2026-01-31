@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common'
+import { Controller, Get, Post, Body, UseGuards, UseInterceptors, UploadedFile, Patch, Put } from '@nestjs/common'
 import { routesV1 } from 'src/configs/app.routes'
 import { resourcesV1 } from 'src/configs/app.permission'
 import { ApiOperation, ApiTags, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger'
@@ -49,7 +49,7 @@ export class ProfileController {
             }
         }
     })
-    @Post(routesV1.profile.updateProfile)
+    @Patch(routesV1.profile.updateProfile)
     async updateProfile(
         @GetUser() user: User,
         @Body() dto: UpdateProfileDto,
@@ -61,7 +61,7 @@ export class ProfileController {
     @ApiOperation({ summary: resourcesV1.CHANGE_PASSWORD.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard)
-    @Post(routesV1.profile.changePassword)
+    @Put(routesV1.profile.changePassword)
     async changePassword(@GetUser() user: User, @Body() dto: ChangePasswordDto) {
         return await this.profileService.changePassword(user.id, dto)
     }
