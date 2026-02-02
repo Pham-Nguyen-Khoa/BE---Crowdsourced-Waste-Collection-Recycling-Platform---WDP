@@ -3,12 +3,16 @@ import { PrismaService } from '../../../libs/prisma/prisma.service';
 import { CreateNotificationDto, BroadcastAllNotificationDto } from '../dtos/create-notification.dto';
 import { errorResponse, successResponse } from 'src/common/utils/response.util';
 import { NotificationType } from 'generated/prisma/enums';
+import { NotificationGateway } from '../gateways/notification.gateway';
 
 @Injectable()
 export class NotificationService {
     private readonly logger = new Logger(NotificationService.name);
 
-    constructor(private prisma: PrismaService) { }
+    constructor(
+        private prisma: PrismaService,
+        private notificationGateway: NotificationGateway,
+    ) { }
 
     /**
      * Tạo notification cho 1 user (dùng nội bộ)
@@ -23,6 +27,24 @@ export class NotificationService {
                 meta: dto.meta || undefined,
             },
         });
+        return record;
+    }
+
+    /**
+     * Tạo notification và push realtime qua socket cho user.
+     * Lưu ý: KHÔNG dùng cho các flow đã tự notify gateway (tránh gửi trùng).
+     */
+    async createAndNotify(dto: CreateNotificationDto) {
+        const record = await this.create(dto);
+        const payload = {
+            id: record?.id,
+            title: record?.title,
+            type: record?.type,
+            content: record?.content,
+            meta: record?.meta,
+            createdAt: record?.createdAt,
+        };
+        this.notificationGateway.notifyUser(record.userId, payload);
         return record;
     }
 
@@ -55,6 +77,18 @@ export class NotificationService {
                 })
             )
         );
+
+        notifications.forEach((n) => {
+            const payload = {
+                id: n?.id,
+                title: n?.title,
+                type: n?.type,
+                content: n?.content,
+                meta: n?.meta,
+                createdAt: n?.createdAt,
+            };
+            this.notificationGateway.notifyUser(n.userId, payload);
+        });
 
         return successResponse(200, {
             totalUsers: users.length,

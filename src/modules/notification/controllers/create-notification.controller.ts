@@ -20,6 +20,7 @@ export class CreateNotificationController {
     @Permissions(PermissionCode.CREATE_NOTIFICATION)
     @Post(routesV1.notification.create)
     async create(@Body() dto: CreateNotificationDto) {
-        return await this.notificationService.create(dto);
+        // create + push realtime via socket
+        return await this.notificationService.createAndNotify(dto);
     }
 }
