@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+﻿import { Injectable, Logger } from '@nestjs/common'
 import { PrismaService } from '../../../libs/prisma/prisma.service'
 import { errorResponse, successResponse } from 'src/common/utils/response.util'
 import { NotificationGateway } from '../../notification/gateways/notification.gateway'
@@ -16,11 +16,15 @@ export class ReportAssignmentService {
     async enterpriseAccept(reportId: number, userId: number) {
         const enterprise = await this.prisma.enterprise.findFirst({
             where: { userId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, status: true }
         })
 
         if (!enterprise) {
             return errorResponse(400, 'Ban khong co quyen tuy chon doanh nghiep')
+        }
+
+        if (enterprise.status === 'EXPIRED') {
+            return errorResponse(400, 'Goi dich vu da het han. Vui long gia han de tiep tuc nhan don.')
         }
 
         const enterpriseId = enterprise.id
@@ -35,7 +39,7 @@ export class ReportAssignmentService {
             return errorResponse(400, 'Ban khong co quyen tuy chon doanh nghiep')
         }
 
-        // Lấy thông tin báo cáo và chủ sở hữu (citizen)
+        // Láº¥y thÃ´ng tin bÃ¡o cÃ¡o vÃ  chá»§ sá»Ÿ há»¯u (citizen)
         const report = await this.prisma.report.findUnique({
             where: { id: reportId },
             select: {
@@ -46,17 +50,15 @@ export class ReportAssignmentService {
         })
 
         if (!report) {
-            return errorResponse(400, 'Báo cáo không tồn tại')
+            return errorResponse(400, 'BÃ¡o cÃ¡o khÃ´ng tá»“n táº¡i')
         }
 
-        // ✅ KIỂM TRA: Report đã bị hủy chưa
         if (report.deletedAt) {
-            return errorResponse(400, 'Báo cáo đã bị hủy bởi citizen', 'REPORT_CANCELLED')
+            return errorResponse(400, 'BÃ¡o cÃ¡o Ä‘Ã£ bá»‹ há»§y bá»Ÿi citizen', 'REPORT_CANCELLED')
         }
 
-        // ✅ KIỂM TRA: Report còn ở trạng thái PENDING không
         if (report.status !== 'PENDING') {
-            return errorResponse(400, `Báo cáo đang ở trạng thái "${report.status}", không thể chấp nhận`, 'INVALID_STATUS')
+            return errorResponse(400, `BÃ¡o cÃ¡o Ä‘ang á»Ÿ tráº¡ng thÃ¡i "${report.status}", khÃ´ng thá»ƒ cháº¥p nháº­n`, 'INVALID_STATUS')
         }
 
         await this.prisma.reportEnterpriseAttempt.update({
@@ -99,8 +101,8 @@ export class ReportAssignmentService {
                 data: {
                     userId: report.citizenId,
                     type: NotificationType.REPORT_STATUS_CHANGED,
-                    title: 'Báo cáo đã được tiếp nhận',
-                    content: 'Báo cáo của bạn đã được tiếp nhận và sẽ sớm được xử lý.',
+                    title: 'BÃ¡o cÃ¡o Ä‘Ã£ Ä‘Æ°á»£c tiáº¿p nháº­n',
+                    content: 'BÃ¡o cÃ¡o cá»§a báº¡n Ä‘Ã£ Ä‘Æ°á»£c tiáº¿p nháº­n vÃ  sáº½ sá»›m Ä‘Æ°á»£c xá»­ lÃ½.',
                     meta: { reportId, action: 'ACCEPTED' }
                 }
             })
@@ -114,10 +116,10 @@ export class ReportAssignmentService {
                 createdAt: notification.createdAt
             })
 
-            this.logger.log(`📬 Đã gửi notification cho citizen ${report.citizenId}`)
+            this.logger.log(`ðŸ“¬ ÄÃ£ gá»­i notification cho citizen ${report.citizenId}`)
         }
 
-        this.logger.log(`✅ Doanh nghiệp ${enterpriseId} đã chấp nhận báo cáo ${reportId}`)
+        this.logger.log(`âœ… Doanh nghiá»‡p ${enterpriseId} Ä‘Ã£ cháº¥p nháº­n bÃ¡o cÃ¡o ${reportId}`)
         return successResponse(200, null, 'Doanh nghiep da chap nhan bao cao rac nay')
 
     }
@@ -125,11 +127,15 @@ export class ReportAssignmentService {
     async enterpriseReject(reportId: number, userId: number) {
         const enterprise = await this.prisma.enterprise.findFirst({
             where: { userId },
-            select: { id: true, name: true }
+            select: { id: true, name: true, status: true }
         })
 
         if (!enterprise) {
             return errorResponse(400, 'Ban khong co quyen tuy chon doanh nghiep')
+        }
+
+        if (enterprise.status === 'EXPIRED') {
+            return errorResponse(400, 'Goi dich vu da het han. Vui long gia han de tiep tuc nhan don.')
         }
 
         const enterpriseId = enterprise.id
@@ -150,7 +156,7 @@ export class ReportAssignmentService {
         })
 
         if (report?.deletedAt) {
-            return errorResponse(400, 'Báo cáo đã bị hủy bởi citizen', 'REPORT_CANCELLED')
+            return errorResponse(400, 'BÃ¡o cÃ¡o Ä‘Ã£ bá»‹ há»§y bá»Ÿi citizen', 'REPORT_CANCELLED')
         }
 
         await this.prisma.reportEnterpriseAttempt.update({
@@ -194,9 +200,9 @@ export class ReportAssignmentService {
         })
 
         for (const attempt of timeoutAttempts) {
-            // Skip nếu report đã bị hủy
+            // Skip náº¿u report Ä‘Ã£ bá»‹ há»§y
             if (!attempt.report || attempt.report.deletedAt) {
-                this.logger.log(`⏰ Attempt ${attempt.id} thuộc report đã bị hủy, bỏ qua`)
+                this.logger.log(`â° Attempt ${attempt.id} thuá»™c report Ä‘Ã£ bá»‹ há»§y, bá» qua`)
                 continue
             }
 
@@ -216,14 +222,14 @@ export class ReportAssignmentService {
                 }
             })
 
-            // Gửi notification hết hạn
+            // Gá»­i notification háº¿t háº¡n
             // if (attempt.report?.citizen?.id) {
             //     const notification = await this.prisma.notification.create({
             //         data: {
             //             userId: attempt.report.citizen.id,
             //             type: NotificationType.REPORT_STATUS_CHANGED,
-            //             title: 'Báo cáo đã hết thời gian phản hồi',
-            //             content: 'Không có doanh nghiệp nào chấp nhận báo cáo của bạn. Vui lòng tạo lại báo cáo.',
+            //             title: 'BÃ¡o cÃ¡o Ä‘Ã£ háº¿t thá»i gian pháº£n há»“i',
+            //             content: 'KhÃ´ng cÃ³ doanh nghiá»‡p nÃ o cháº¥p nháº­n bÃ¡o cÃ¡o cá»§a báº¡n. Vui lÃ²ng táº¡o láº¡i bÃ¡o cÃ¡o.',
             //             meta: { reportId: attempt.reportId, action: 'EXPIRED' }
             //         }
             //     })
@@ -238,7 +244,7 @@ export class ReportAssignmentService {
             //     })
             // }
 
-            this.logger.log(`⏰ Attempt ${attempt.id} hết thời gian - báo cáo ${attempt.reportId} trả về PENDING`)
+            this.logger.log(`â° Attempt ${attempt.id} háº¿t thá»i gian - bÃ¡o cÃ¡o ${attempt.reportId} tráº£ vá» PENDING`)
         }
     }
 
@@ -284,7 +290,7 @@ export class ReportAssignmentService {
             attemptId: attempt.id
         }))
 
-        this.logger.log(`📋 Doanh nghiệp ${enterpriseId} lấy ${reports.length} báo cáo đang đợi phản hồi`)
+        this.logger.log(`ðŸ“‹ Doanh nghiá»‡p ${enterpriseId} láº¥y ${reports.length} bÃ¡o cÃ¡o Ä‘ang Ä‘á»£i pháº£n há»“i`)
 
         return successResponse(200, reports, `Lay thanh cong ${reports.length} bao cao dang doi phan hoi`)
     }

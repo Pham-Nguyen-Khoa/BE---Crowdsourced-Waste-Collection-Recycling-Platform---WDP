@@ -155,39 +155,56 @@ export class EnterpriseService {
     }
 
     async processSePayWebhookRaw(webhookData: any) {
-        console.log('Raw SePay Webhook Data:', webhookData);
+        console.log('--- BEGIN SEPAY WEBHOOK PROCESSING ---');
+        console.log('Raw SePay Webhook Data:', JSON.stringify(webhookData, null, 2));
 
         let paymentReferenceCode = '';
 
         if (webhookData.content) {
-            const match = webhookData.content.match(/Thanh toan ([A-Z0-9]+)/);
+            // Regex linh hoạt hơn để bắt được cả PAY và REN
+            const match = webhookData.content.match(/(?:Thanh toan|Thanh toán)\s+([A-Z0-9]+)/i);
             if (match && match[1]) {
-                paymentReferenceCode = match[1];
+                paymentReferenceCode = match[1].toUpperCase();
+                console.log(`Regex matched reference code: ${paymentReferenceCode}`);
+            } else {
+                console.log(`Regex did NOT match content: "${webhookData.content}"`);
             }
         }
 
         if (!paymentReferenceCode) {
             paymentReferenceCode = webhookData.referenceCode;
+            console.log(`Using fallback referenceCode: ${paymentReferenceCode}`);
         }
 
-        console.log(`Extracted reference code: ${paymentReferenceCode}`);
+        if (!paymentReferenceCode) {
+            console.log('CRITICAL: No reference code found in webhook data');
+            return errorResponse(400, 'Không tìm thấy mã tham chiếu', 'NO_REFERENCE_CODE');
+        }
+
+        console.log(`Searching for payment with reference code: ${paymentReferenceCode}`);
 
         const payment = await this.enterpriseRepository.findPaymentByReferenceCode(paymentReferenceCode);
         if (!payment) {
-            console.log(`Payment not found for reference code: ${paymentReferenceCode}`);
+            console.log(`Payment NOT FOUND in database for reference code: ${paymentReferenceCode}`);
             return errorResponse(404, 'Không tìm thấy thanh toán', 'PAYMENT_NOT_FOUND');
         }
 
+        console.log(`Found payment: ID=${payment.id}, Status=${payment.status}, Expected Amount=${Number(payment.amount)}`);
+
         const webhookAmount = webhookData.transferAmount || webhookData.amount;
+        console.log(`Webhook amount: ${webhookAmount}`);
+
         if (Number(payment.amount) !== Number(webhookAmount)) {
-            console.log(`Amount mismatch: payment=${Number(payment.amount)}, webhook=${webhookAmount}`);
+            console.log(`Amount mismatch! Payment=${Number(payment.amount)}, Webhook=${webhookAmount}`);
             await this.enterpriseRepository.markPaymentAsFailed(paymentReferenceCode);
             return errorResponse(400, 'Số tiền không khớp', 'AMOUNT_MISMATCH');
         }
 
+        console.log(`Proceeding to activate enterprise with referenceCode: ${paymentReferenceCode}`);
         const result = await this.enterpriseRepository.activateEnterprise(paymentReferenceCode);
-        return successResponse(200, result, 'Kích hoạt doanh nghiệp thành công');
 
+        console.log('--- END SEPAY WEBHOOK PROCESSING (SUCCESS) ---');
+        return successResponse(200, result, 'Kích hoạt doanh nghiệp thành công');
     }
 
     async processSePayWebhook(webhookData: SePayWebhookDto) {
@@ -202,14 +219,20 @@ export class EnterpriseService {
                 return successResponse(200, { status: 'NOT_REGISTERED', message: 'Chưa đăng ký doanh nghiệp' });
             }
 
-            if (enterprise.status === 'ACTIVE') {
+            // ACTIVE, OFFLINE, EXPIRED đều là các trạng thái đã kích hoạt (đã thanh toán)
+            if (['ACTIVE', 'OFFLINE', 'EXPIRED'].includes(enterprise.status)) {
                 return successResponse(200, {
-                    status: 'ACTIVE',
+                    status: enterprise.status,
                     enterprise,
-                    message: 'Doanh nghiệp đã kích hoạt'
+                    message: enterprise.status === 'ACTIVE'
+                        ? 'Doanh nghiệp đang nhận đơn'
+                        : enterprise.status === 'OFFLINE'
+                            ? 'Doanh nghiệp đã kích hoạt nhưng đang offline'
+                            : 'Gói dịch vụ đã hết hạn'
                 });
             }
 
+            // PENDING: chưa thanh toán
             const pendingPayment = await this.enterpriseRepository.findPaymentByEnterpriseId(enterprise.id);
 
             return successResponse(200, {
@@ -491,5 +514,160 @@ export class EnterpriseService {
 
 
         return successResponse(200, reports, `Lay thanh cong ${reports.length} bao cao dang doi phan hoi`)
+    }
+
+    /**
+     * Lấy thông tin subscription hiện tại của enterprise
+     */
+    async getSubscriptionInfo(userId: number) {
+        try {
+            const enterprise = await this.prisma.enterprise.findFirst({
+                where: { userId, deletedAt: null },
+                select: { id: true, name: true, status: true }
+            });
+
+            if (!enterprise) {
+                return errorResponse(404, 'Không tìm thấy doanh nghiệp', 'ENTERPRISE_NOT_FOUND');
+            }
+
+            // Ưu tiên subscription đang active; nếu không có thì lấy mới nhất (đã hết hạn)
+            let subscription = await this.prisma.subscription.findFirst({
+                where: { enterpriseId: enterprise.id, isActive: true },
+                orderBy: { endDate: 'desc' },
+                include: { subscriptionPlanConfig: true }
+            });
+            if (!subscription) {
+                subscription = await this.prisma.subscription.findFirst({
+                    where: { enterpriseId: enterprise.id },
+                    orderBy: { createdAt: 'desc' },
+                    include: { subscriptionPlanConfig: true }
+                });
+            }
+
+            const pendingPayment = await this.prisma.payment.findFirst({
+                where: { enterpriseId: enterprise.id, status: 'PENDING' },
+                include: { subscriptionPlanConfig: true },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            return successResponse(200, {
+                enterpriseId: enterprise.id,
+                enterpriseName: enterprise.name,
+                enterpriseStatus: enterprise.status,
+                subscription: subscription ? {
+                    id: subscription.id,
+                    planName: subscription.subscriptionPlanConfig.name,
+                    durationMonths: subscription.subscriptionPlanConfig.durationMonths,
+                    price: Number(subscription.subscriptionPlanConfig.price),
+                    startDate: subscription.startDate,
+                    endDate: subscription.endDate,
+                    isActive: subscription.isActive,
+                    isExpired: !subscription.isActive || subscription.endDate < new Date(),
+                    timeRemaining: (() => {
+                        const msLeft = Math.max(0, subscription.endDate.getTime() - Date.now());
+                        const totalSeconds = Math.floor(msLeft / 1000);
+                        const days = Math.floor(totalSeconds / 86400);
+                        const hours = Math.floor((totalSeconds % 86400) / 3600);
+                        const minutes = Math.floor((totalSeconds % 3600) / 60);
+                        return { days, hours, minutes };
+                    })(),
+                } : null,
+                pendingPayment: pendingPayment ? {
+                    referenceCode: pendingPayment.referenceCode,
+                    amount: Number(pendingPayment.amount),
+                    planName: pendingPayment.subscriptionPlanConfig.name,
+                    expiresAt: pendingPayment.expiresAt,
+                    status: pendingPayment.status,
+                } : null,
+            }, 'Lấy thông tin gói dịch vụ thành công');
+        } catch (error) {
+            return errorResponse(500, 'Lỗi lấy thông tin gói dịch vụ', 'GET_SUBSCRIPTION_FAILED');
+        }
+    }
+
+    /**
+     * Gia hạn gói dịch vụ khi đã EXPIRED (hoặc sắp hết hạn)
+     */
+    async renewSubscription(userId: number, subscriptionPlanConfigId: number) {
+        try {
+            const enterprise = await this.prisma.enterprise.findFirst({
+                where: { userId, deletedAt: null },
+                select: { id: true, name: true, status: true }
+            });
+
+            if (!enterprise) {
+                return errorResponse(404, 'Không tìm thấy doanh nghiệp', 'ENTERPRISE_NOT_FOUND');
+            }
+
+            if (!['ACTIVE', 'EXPIRED', 'OFFLINE'].includes(enterprise.status)) {
+                return errorResponse(400, 'Doanh nghiệp không thể gia hạn ở trạng thái này', 'INVALID_STATUS');
+            }
+
+            // Hủy payment PENDING cũ nếu có
+            const existingPendingPayment = await this.prisma.payment.findFirst({
+                where: { enterpriseId: enterprise.id, status: 'PENDING' },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            if (existingPendingPayment) {
+                await this.enterpriseRepository.cancelPayment(existingPendingPayment.referenceCode);
+            }
+
+            // Kiểm tra plan
+            const plan = await this.enterpriseRepository.findSubscriptionPlanById(subscriptionPlanConfigId);
+            if (!plan || !plan.isActive) {
+                return errorResponse(404, 'Gói dịch vụ không tồn tại hoặc không còn hoạt động', 'PLAN_NOT_FOUND');
+            }
+
+            // Tạo payment mới cho việc gia hạn
+            // Dùng timestamp + random suffix để đảm bảo unique tuyệt đối
+            const uniqueSuffix = `${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+            const referenceCode = `REN${uniqueSuffix}`;
+
+            const expiresAt = new Date();
+            expiresAt.setMinutes(expiresAt.getMinutes() + 30);
+
+            const payment = await this.prisma.payment.create({
+                data: {
+                    userId,
+                    enterpriseId: enterprise.id,
+                    subscriptionPlanConfigId,
+                    method: 'BANK_TRANSFER',
+                    status: 'PENDING',
+                    amount: plan.price,
+                    currency: 'VND',
+                    description: `Gia hạn gói dịch vụ: ${enterprise.name} - ${plan.name}`,
+                    referenceCode,
+                    expiresAt,
+                },
+                include: { subscriptionPlanConfig: true }
+            });
+
+            const qrData = QRGenerator.generatePaymentQR({
+                bankCode: '970422',
+                accountNumber: '0001674486670',
+                amount: Number(payment.amount),
+                transferContent: `Thanh toan ${payment.referenceCode}`,
+                accountHolder: 'PHAM NGUYEN KHOA',
+                template: '5HiNLUp'
+            });
+
+            return successResponse(201, {
+                payment: {
+                    referenceCode: payment.referenceCode,
+                    amount: Number(payment.amount),
+                    currency: payment.currency,
+                    description: payment.description,
+                    planName: payment.subscriptionPlanConfig.name,
+                    durationMonths: payment.subscriptionPlanConfig.durationMonths,
+                    expiresAt: payment.expiresAt,
+                    status: payment.status,
+                },
+                qrCode: qrData,
+            }, 'Tạo yêu cầu gia hạn thành công. Vui lòng chuyển khoản trong 30 phút.');
+        } catch (error) {
+            console.error('Error in renewSubscription:', error);
+            return errorResponse(500, 'Lỗi gia hạn gói dịch vụ', 'RENEW_FAILED');
+        }
     }
 }

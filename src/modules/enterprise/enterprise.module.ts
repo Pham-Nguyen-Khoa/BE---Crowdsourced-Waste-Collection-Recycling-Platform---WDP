@@ -16,6 +16,7 @@ import { GetDetailReportWaitingController } from './controllers/get-detail-repor
 import { GetDetailReportWaitingService } from './services/get-detail-report-waiting.service';
 import { ToggleOrderAcceptanceController } from './controllers/toggle-order-acceptance.controller';
 import { ToggleOrderAcceptanceService } from './services/toggle-order-acceptance.service';
+import { SubscriptionController } from './controllers/subscription.controller';
 
 
 const httpController = [
@@ -25,6 +26,7 @@ const httpController = [
     GetAllReportWaitingController,
     GetDetailReportWaitingController,
     ToggleOrderAcceptanceController,
+    SubscriptionController,
 ]
 
 

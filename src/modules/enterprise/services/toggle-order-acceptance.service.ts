@@ -24,6 +24,10 @@ export class ToggleOrderAcceptanceService {
                 return errorResponse(400, 'Doanh nghiệp đã bị cấm');
             }
 
+            if (enterprise.status === 'EXPIRED') {
+                return errorResponse(400, 'Gói dịch vụ đã hết hạn. Vui lòng gia hạn để tiếp tục nhận đơn.');
+            }
+
             if (enterprise.user.status === 'BANNED') {
                 return errorResponse(400, 'Tài khoản đã bị cấm');
             }

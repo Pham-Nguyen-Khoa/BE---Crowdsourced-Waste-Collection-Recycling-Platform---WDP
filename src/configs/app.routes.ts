@@ -78,6 +78,10 @@ export const routesV1 = {
         // Order acceptance
         toggleOrderAcceptance: `${enterprise}/order-acceptance`,
         getOrderAcceptanceStatus: `${enterprise}/order-acceptance`,
+
+        // Subscription
+        getSubscription: `${enterprise}/subscription`,
+        renewSubscription: `${enterprise}/subscription/renew`,
     },
     citizen: {
         // Report management

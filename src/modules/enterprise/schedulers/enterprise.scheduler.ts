@@ -45,5 +45,22 @@ export class EnterpriseScheduler {
         }
     }
 
+    @Cron(CronExpression.EVERY_MINUTE)
+    async handleExpiredSubscriptions() {
+        try {
+            const expiredSubscriptions = await this.enterpriseRepository.findExpiredSubscriptions();
 
+            for (const sub of expiredSubscriptions) {
+                await this.enterpriseRepository.deactivateSubscription(sub.id);
+                await this.enterpriseRepository.updateEnterpriseStatus(sub.enterpriseId, 'EXPIRED');
+                this.logger.log(`Subscription ${sub.id} for Enterprise ${sub.enterpriseId} deactivated and status set to EXPIRED`);
+            }
+
+            if (expiredSubscriptions.length > 0) {
+                this.logger.log(`Processed ${expiredSubscriptions.length} expired subscriptions`);
+            }
+        } catch (error) {
+            this.logger.error('Error handling expired subscriptions:', error);
+        }
+    }
 }

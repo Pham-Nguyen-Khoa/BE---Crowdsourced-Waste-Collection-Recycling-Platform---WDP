@@ -255,6 +255,9 @@ export class EnterpriseRepository {
      */
     async activateEnterprise(referenceCode: string) {
         return this.prisma.$transaction(async (tx) => {
+
+            const now = new Date();
+
             // 1. Tìm payment
             const payment = await tx.payment.findUnique({
                 where: { referenceCode },
@@ -269,27 +272,78 @@ export class EnterpriseRepository {
                 throw new Error('Invalid payment');
             }
 
-            // 2. Tạo Subscription
-            const startDate = new Date();
-            const endDate = new Date();
-            endDate.setMonth(endDate.getMonth() + payment.subscriptionPlanConfig.durationMonths);
-
-            const subscription = await tx.subscription.create({
-                data: {
+            // 2. Tìm subscription còn hạn
+            const currentSubscription = await tx.subscription.findFirst({
+                where: {
                     enterpriseId: payment.enterpriseId,
-                    subscriptionPlanConfigId: payment.subscriptionPlanConfigId,
-                    startDate,
-                    endDate
+                    isActive: true
+                },
+                orderBy: {
+                    endDate: 'desc'
                 }
             });
 
-            // 3. Cập nhật Enterprise status thành ACTIVE
-            await tx.enterprise.update({
+            let subscription;
+
+            console.log('currentSubscription', currentSubscription);
+            console.log('now', now);
+            console.log('subscription', subscription);
+
+            // CASE 1: còn hạn → gia hạn
+            if (currentSubscription && currentSubscription.endDate > now) {
+
+                const newEndDate = new Date(currentSubscription.endDate);
+                newEndDate.setMonth(
+                    newEndDate.getMonth() + payment.subscriptionPlanConfig.durationMonths
+                );
+
+                subscription = await tx.subscription.update({
+                    where: { id: currentSubscription.id },
+                    data: {
+                        endDate: newEndDate
+                    }
+                });
+
+            }
+            // CASE 2: hết hạn hoặc chưa có → tạo mới
+            else {
+
+                // deactivate subscription cũ
+                await tx.subscription.updateMany({
+                    where: {
+                        enterpriseId: payment.enterpriseId,
+                        isActive: true
+                    },
+                    data: {
+                        isActive: false
+                    }
+                });
+
+                const endDate = new Date(now);
+                endDate.setMonth(
+                    endDate.getMonth() + payment.subscriptionPlanConfig.durationMonths
+                );
+
+                subscription = await tx.subscription.create({
+                    data: {
+                        enterpriseId: payment.enterpriseId,
+                        subscriptionPlanConfigId: payment.subscriptionPlanConfigId,
+                        startDate: now,
+                        endDate,
+                        isActive: true
+                    }
+                });
+            }
+
+            // 3. Set enterprise status = OFFLINE
+            const enterprise = await tx.enterprise.update({
                 where: { id: payment.enterpriseId },
-                data: { status: EnterpriseStatus.ACTIVE }
+                data: {
+                    status: EnterpriseStatus.OFFLINE
+                }
             });
 
-            // 4. Cập nhật User role thành ENTERPRISE
+            // 4. Update role user thành ENTERPRISE
             const enterpriseRole = await tx.role.findFirst({
                 where: { name: 'ENTERPRISE' }
             });
@@ -300,22 +354,24 @@ export class EnterpriseRepository {
 
             await tx.user.update({
                 where: { id: payment.userId },
-                data: { roleId: enterpriseRole.id }
+                data: {
+                    roleId: enterpriseRole.id
+                }
             });
 
-            // 5. Cập nhật payment status
-            await tx.payment.update({
+            // 5. Update payment
+            const updatedPayment = await tx.payment.update({
                 where: { referenceCode },
                 data: {
                     status: PaymentStatus.PAID,
-                    paidAt: new Date()
+                    paidAt: now
                 }
             });
 
             return {
-                enterprise: { ...payment.enterprise, status: EnterpriseStatus.ACTIVE },
+                enterprise,
                 subscription,
-                payment: { ...payment, status: PaymentStatus.PAID, paidAt: new Date() }
+                payment: updatedPayment
             };
         });
     }
@@ -364,6 +420,40 @@ export class EnterpriseRepository {
     async deleteEnterprise(enterpriseId: number) {
         return this.prisma.enterprise.delete({
             where: { id: enterpriseId }
+        });
+    }
+
+    /**
+     * Tìm các subscription đang active nhưng đã hết hạn
+     */
+    async findExpiredSubscriptions() {
+        return this.prisma.subscription.findMany({
+            where: {
+                isActive: true,
+                endDate: {
+                    lt: new Date()
+                }
+            }
+        });
+    }
+
+    /**
+     * Hủy kích hoạt subscription
+     */
+    async deactivateSubscription(subscriptionId: number) {
+        return this.prisma.subscription.update({
+            where: { id: subscriptionId },
+            data: { isActive: false }
+        });
+    }
+
+    /**
+     * Cập nhật trạng thái enterprise
+     */
+    async updateEnterpriseStatus(enterpriseId: number, status: EnterpriseStatus) {
+        return this.prisma.enterprise.update({
+            where: { id: enterpriseId },
+            data: { status }
         });
     }
 
