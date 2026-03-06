@@ -155,55 +155,40 @@ export class EnterpriseService {
     }
 
     async processSePayWebhookRaw(webhookData: any) {
-        console.log('--- BEGIN SEPAY WEBHOOK PROCESSING ---');
-        console.log('Raw SePay Webhook Data:', JSON.stringify(webhookData, null, 2));
 
         let paymentReferenceCode = '';
 
         if (webhookData.content) {
-            // Regex linh hoạt hơn để bắt được cả PAY và REN
             const match = webhookData.content.match(/(?:Thanh toan|Thanh toán)\s+([A-Z0-9]+)/i);
             if (match && match[1]) {
                 paymentReferenceCode = match[1].toUpperCase();
-                console.log(`Regex matched reference code: ${paymentReferenceCode}`);
             } else {
-                console.log(`Regex did NOT match content: "${webhookData.content}"`);
             }
         }
 
         if (!paymentReferenceCode) {
             paymentReferenceCode = webhookData.referenceCode;
-            console.log(`Using fallback referenceCode: ${paymentReferenceCode}`);
         }
 
         if (!paymentReferenceCode) {
-            console.log('CRITICAL: No reference code found in webhook data');
             return errorResponse(400, 'Không tìm thấy mã tham chiếu', 'NO_REFERENCE_CODE');
         }
 
-        console.log(`Searching for payment with reference code: ${paymentReferenceCode}`);
 
         const payment = await this.enterpriseRepository.findPaymentByReferenceCode(paymentReferenceCode);
         if (!payment) {
-            console.log(`Payment NOT FOUND in database for reference code: ${paymentReferenceCode}`);
             return errorResponse(404, 'Không tìm thấy thanh toán', 'PAYMENT_NOT_FOUND');
         }
 
-        console.log(`Found payment: ID=${payment.id}, Status=${payment.status}, Expected Amount=${Number(payment.amount)}`);
 
         const webhookAmount = webhookData.transferAmount || webhookData.amount;
-        console.log(`Webhook amount: ${webhookAmount}`);
 
         if (Number(payment.amount) !== Number(webhookAmount)) {
-            console.log(`Amount mismatch! Payment=${Number(payment.amount)}, Webhook=${webhookAmount}`);
             await this.enterpriseRepository.markPaymentAsFailed(paymentReferenceCode);
             return errorResponse(400, 'Số tiền không khớp', 'AMOUNT_MISMATCH');
         }
-
-        console.log(`Proceeding to activate enterprise with referenceCode: ${paymentReferenceCode}`);
         const result = await this.enterpriseRepository.activateEnterprise(paymentReferenceCode);
 
-        console.log('--- END SEPAY WEBHOOK PROCESSING (SUCCESS) ---');
         return successResponse(200, result, 'Kích hoạt doanh nghiệp thành công');
     }
 
@@ -211,40 +196,6 @@ export class EnterpriseService {
         return this.processSePayWebhookRaw(webhookData);
     }
 
-    async getRegistrationStatus(userId: number) {
-        try {
-            const enterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
-
-            if (!enterprise) {
-                return successResponse(200, { status: 'NOT_REGISTERED', message: 'Chưa đăng ký doanh nghiệp' });
-            }
-
-            // ACTIVE, OFFLINE, EXPIRED đều là các trạng thái đã kích hoạt (đã thanh toán)
-            if (['ACTIVE', 'OFFLINE', 'EXPIRED'].includes(enterprise.status)) {
-                return successResponse(200, {
-                    status: enterprise.status,
-                    enterprise,
-                    message: enterprise.status === 'ACTIVE'
-                        ? 'Doanh nghiệp đang nhận đơn'
-                        : enterprise.status === 'OFFLINE'
-                            ? 'Doanh nghiệp đã kích hoạt nhưng đang offline'
-                            : 'Gói dịch vụ đã hết hạn'
-                });
-            }
-
-            // PENDING: chưa thanh toán
-            const pendingPayment = await this.enterpriseRepository.findPaymentByEnterpriseId(enterprise.id);
-
-            return successResponse(200, {
-                status: 'PENDING_PAYMENT',
-                enterprise,
-                payment: pendingPayment,
-                message: pendingPayment ? 'Đang chờ thanh toán' : 'Cần tạo thanh toán'
-            });
-        } catch (error) {
-            return errorResponse(500, 'Lỗi kiểm tra trạng thái', 'STATUS_CHECK_FAILED');
-        }
-    }
 
     async resumeRegistration(userId: number) {
         try {
@@ -527,7 +478,7 @@ export class EnterpriseService {
             });
 
             if (!enterprise) {
-                return errorResponse(404, 'Không tìm thấy doanh nghiệp', 'ENTERPRISE_NOT_FOUND');
+                return successResponse(200, { status: 'NOT_REGISTERED', message: 'Chưa đăng ký doanh nghiệp' });
             }
 
             // Ưu tiên subscription đang active; nếu không có thì lấy mới nhất (đã hết hạn)
@@ -578,6 +529,14 @@ export class EnterpriseService {
                     planName: pendingPayment.subscriptionPlanConfig.name,
                     expiresAt: pendingPayment.expiresAt,
                     status: pendingPayment.status,
+                    qrCode: QRGenerator.generatePaymentQR({
+                        bankCode: '970422',
+                        accountNumber: '0001674486670',
+                        amount: Number(pendingPayment.amount),
+                        transferContent: `Thanh toan ${pendingPayment.referenceCode}`,
+                        accountHolder: 'PHAM NGUYEN KHOA',
+                        template: '5HiNLUp'
+                    })
                 } : null,
             }, 'Lấy thông tin gói dịch vụ thành công');
         } catch (error) {

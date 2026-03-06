@@ -37,6 +37,7 @@ export class EnterpriseController {
     }
 
 
+
     @ApiOperation({ summary: resourcesV1.GET_PAYMENT.displayName })
     @ApiBearerAuth()
     @UseGuards(JWTGuard)

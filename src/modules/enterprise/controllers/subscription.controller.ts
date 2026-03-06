@@ -23,8 +23,7 @@ export class SubscriptionController {
 
     @ApiOperation({ summary: 'Lấy thông tin gói dịch vụ hiện tại' })
     @ApiBearerAuth()
-    @UseGuards(JWTGuard, RolesGuard)
-    @Roles(2)
+    @UseGuards(JWTGuard)
     @Get(routesV1.enterprise.getSubscription)
     async getSubscriptionInfo(@GetUser() user: User) {
         return this.enterpriseService.getSubscriptionInfo(user.id);
