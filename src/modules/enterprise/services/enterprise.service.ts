@@ -112,7 +112,103 @@ export class EnterpriseService {
         }
 
         return successResponse(200, payment);
+    }
 
+    /**
+     * Tạo lại thanh toán mới cho yêu cầu cũ đã hết hạn hoặc failed
+     */
+    async retryPayment(userId: number) {
+        try {
+            const enterprise = await this.prisma.enterprise.findFirst({
+                where: { userId, deletedAt: null, status: 'PENDING' },
+            });
+
+            if (!enterprise) {
+                return errorResponse(404, 'Không tìm thấy yêu cầu đăng ký đang chờ xử lý', 'ENTERPRISE_NOT_FOUND');
+            }
+
+            const lastPayment = await this.prisma.payment.findFirst({
+                where: { enterpriseId: enterprise.id },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            if (!lastPayment) {
+                return errorResponse(400, 'Không tìm thấy lịch sử thanh toán để tạo lại', 'NO_PAYMENT_HISTORY');
+            }
+
+            return await this.createPayment(userId, {
+                enterpriseId: enterprise.id,
+                subscriptionPlanConfigId: lastPayment.subscriptionPlanConfigId
+            });
+        } catch (error) {
+            console.error('Error in retryPayment:', error);
+            return errorResponse(500, 'Lỗi tạo lại thanh toán', 'RETRY_PAYMENT_FAILED');
+        }
+    }
+
+    async getPendingPaymentInfo(userId: number) {
+        try {
+            const enterprise = await this.prisma.enterprise.findFirst({
+                where: { userId, deletedAt: null },
+                select: { id: true, name: true, status: true }
+            });
+
+            if (!enterprise || enterprise.status !== 'PENDING') {
+                return successResponse(200, {
+                    hasPendingRegistration: false
+                }, 'Không có yêu cầu đăng ký nào đang chờ');
+            }
+
+            const lastPayment = await this.prisma.payment.findFirst({
+                where: { enterpriseId: enterprise.id },
+                include: { subscriptionPlanConfig: true },
+                orderBy: { createdAt: 'desc' }
+            });
+
+            const now = new Date();
+            const expiresAt = lastPayment?.expiresAt || (lastPayment ? new Date(lastPayment.createdAt.getTime() + 30 * 60000) : null);
+            const diffMs = expiresAt ? expiresAt.getTime() - now.getTime() : -1;
+
+            const isPaymentValid = lastPayment?.status === 'PENDING' && diffMs > 0;
+
+            if (!isPaymentValid) {
+                return successResponse(200, {
+                    hasPendingRegistration: true,
+                    isPaymentExpired: true,
+                    enterpriseName: enterprise.name,
+                    message: `Bạn đang có một yêu cầu đăng ký doanh nghiệp **${enterprise.name}** nhưng thanh toán đã hết hạn hoặc bị hủy.`
+                }, 'Yêu cầu đăng ký cần được thanh toán lại');
+            }
+
+            const minutes = Math.floor(diffMs / 60000);
+            const qrCode = QRGenerator.generatePaymentQR({
+                bankCode: '970422',
+                accountNumber: '0001674486670',
+                amount: Number(lastPayment.amount),
+                transferContent: `Thanh toan ${lastPayment.referenceCode}`,
+                accountHolder: 'PHAM NGUYEN KHOA',
+                template: '5HiNLUp'
+            });
+
+            return successResponse(200, {
+                hasPendingRegistration: true,
+                isPaymentExpired: false,
+                enterpriseName: enterprise.name,
+                message: `Bạn còn **${minutes} phút** để hoàn tất thanh toán cho doanh nghiệp **${enterprise.name}**.`,
+                remainingSeconds: Math.floor(diffMs / 1000),
+                payment: {
+                    referenceCode: lastPayment.referenceCode,
+                    amount: Number(lastPayment.amount),
+                    expiresAt: lastPayment.expiresAt,
+                    planName: lastPayment.subscriptionPlanConfig?.name || 'Gói dịch vụ'
+                },
+                qrCode
+            }, 'Lấy thông tin thanh toán thành công');
+
+        } catch (error) {
+            console.error('Error in getPendingPaymentInfo:', error);
+            return errorResponse(500, 'Lỗi lấy thông tin thanh toán', 'GET_PENDING_PAYMENT_FAILED');
+        }
     }
 
     async cancelPayment(referenceCode: string, userId: number) {
@@ -196,88 +292,6 @@ export class EnterpriseService {
         return this.processSePayWebhookRaw(webhookData);
     }
 
-
-    async resumeRegistration(userId: number) {
-        try {
-            const enterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
-
-            if (!enterprise) {
-                return errorResponse(404, 'Không tìm thấy doanh nghiệp', 'ENTERPRISE_NOT_FOUND');
-            }
-
-            if (enterprise.status === 'ACTIVE') {
-                return errorResponse(400, 'Doanh nghiệp đã kích hoạt', 'ALREADY_ACTIVE');
-            }
-
-            const pendingPayment = await this.enterpriseRepository.findPaymentByEnterpriseId(enterprise.id);
-
-            if (!pendingPayment || pendingPayment.status !== 'PENDING') {
-                return errorResponse(400, 'Không có thanh toán đang chờ xử lý', 'NO_PENDING_PAYMENT');
-            }
-
-            const subscriptionPlanConfigId = (enterprise as any).subscriptionPlanConfigId || pendingPayment.subscriptionPlanConfigId;
-
-            const qrData = QRGenerator.generatePaymentQR({
-                bankCode: '970422',
-                accountNumber: '0001674486670',
-                amount: Number(pendingPayment.amount),
-                transferContent: `Thanh toan ${pendingPayment.referenceCode}`,
-                accountHolder: 'PHAM NGUYEN KHOA',
-                template: '5HiNLUp'
-            });
-
-            return successResponse(200, {
-                enterprise,
-                payment: pendingPayment,
-                qrCode: qrData,
-                message: 'Resume thành công'
-            });
-        } catch (error) {
-            return errorResponse(500, 'Lỗi resume đăng ký', 'RESUME_FAILED');
-        }
-    }
-
-    async retryPayment(userId: number, enterpriseId: number) {
-        try {
-            const enterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
-            if (!enterprise || enterprise.id !== enterpriseId) {
-                return errorResponse(403, 'Không có quyền truy cập', 'FORBIDDEN');
-            }
-
-            if (enterprise.status === 'ACTIVE') {
-                return errorResponse(400, 'Doanh nghiệp đã kích hoạt', 'ALREADY_ACTIVE');
-            }
-
-            const existingPayment = await this.enterpriseRepository.findPaymentByEnterpriseId(enterpriseId);
-            if (existingPayment && existingPayment.status === 'PENDING') {
-                await this.enterpriseRepository.cancelPayment(existingPayment.referenceCode);
-            }
-
-            const paymentDto = {
-                enterpriseId,
-                subscriptionPlanConfigId: (enterprise as any).subscriptionPlanConfigId
-            };
-
-            const payment = await this.enterpriseRepository.createPayment(userId, paymentDto);
-
-            const qrData = QRGenerator.generatePaymentQR({
-                bankCode: '970422',
-                accountNumber: '0001674486670',
-                amount: Number(payment.amount),
-                transferContent: `Thanh toan ${payment.referenceCode}`,
-                accountHolder: 'PHAM NGUYEN KHOA',
-                template: '5HiNLUp'
-            });
-
-            return successResponse(201, {
-                payment,
-                qrCode: qrData,
-                message: 'Tạo thanh toán mới thành công'
-            });
-        } catch (error) {
-            return errorResponse(500, 'Lỗi tạo thanh toán mới', 'RETRY_FAILED');
-        }
-    }
 
     async testPaymentSuccess(referenceCode: string) {
         try {

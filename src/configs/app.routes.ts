@@ -1,6 +1,3 @@
-import { create } from "domain";
-import { get } from "http";
-
 const profile = 'profile';
 
 const auth = 'auth';
@@ -50,6 +47,8 @@ export const routesV1 = {
         // Payment management
         createPayment: `${enterprise}/payment`,
         getPayment: `${enterprise}/payment/:referenceCode`,
+        getPendingPayment: `${enterprise}/pending-payment`,
+        createRetryPayment: `${enterprise}/re-create-payment`,
         cancelPayment: `${enterprise}/payment/:referenceCode/cancel`,
 
         // Subscription Plans

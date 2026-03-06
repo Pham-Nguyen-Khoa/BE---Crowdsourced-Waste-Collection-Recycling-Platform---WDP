@@ -8,7 +8,7 @@ export class EnterpriseScheduler {
 
     constructor(private readonly enterpriseRepository: EnterpriseRepository) { }
 
-    @Cron(CronExpression.EVERY_30_MINUTES)
+    @Cron(CronExpression.EVERY_MINUTE)
     async handleExpiredPayments() {
         try {
             const expiredPayments = await this.enterpriseRepository.findExpiredPayments();
@@ -27,7 +27,7 @@ export class EnterpriseScheduler {
     }
 
 
-    @Cron(CronExpression.EVERY_DAY_AT_3PM)
+    @Cron(CronExpression.EVERY_DAY_AT_3AM)
     async cleanupPendingEnterprises() {
         try {
             const oldPendingEnterprises = await this.enterpriseRepository.findOldPendingEnterprises();

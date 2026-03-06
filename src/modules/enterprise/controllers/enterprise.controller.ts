@@ -46,6 +46,21 @@ export class EnterpriseController {
         return await this.enterpriseService.getPayment(referenceCode, user.id);
     }
 
+    @ApiOperation({ summary: 'Lấy thông tin thanh toán đang chờ xử lý' })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard)
+    @Get(routesV1.enterprise.getPendingPayment)
+    async getPendingPayment(@GetUser() user: User) {
+        return await this.enterpriseService.getPendingPaymentInfo(user.id);
+    }
+
+    @ApiOperation({ summary: 'Tạo lại mã thanh toán mới' })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard)
+    @Post(routesV1.enterprise.createRetryPayment)
+    async reCreatePayment(@GetUser() user: User) {
+        return await this.enterpriseService.retryPayment(user.id);
+    }
 
 
     @ApiOperation({ summary: resourcesV1.CANCEL_PAYMENT.displayName })
