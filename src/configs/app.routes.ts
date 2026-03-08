@@ -1,13 +1,13 @@
-import { create } from 'domain';
-import { get } from 'http';
-
 const profile = 'profile';
-
 const auth = 'auth';
 const permission = 'permissions';
 const enterprise = 'enterprise';
 const citizen = 'citizen';
 const notification = 'notifications';
+
+// Api Version
+const v1api = 'api/v1';
+
 const baseRoutes = (root: string) => {
   return {
     root,
@@ -16,13 +16,11 @@ const baseRoutes = (root: string) => {
     delete: `/${root}/:id`,
   };
 };
-// Api Versions
-const v1api = 'api/v1';
 
 export const routesV1 = {
   apiversion: v1api,
+
   auth: {
-    // ...baseRoutes(`${auth}`),
     login: `${auth}/login`,
     login_facebook: `${auth}/login-facebook`,
     signup: `${auth}/signup`,
@@ -32,35 +30,41 @@ export const routesV1 = {
     resetPassword: `${auth}/reset-password`,
     resendOTP: `${auth}/resend-otp`,
   },
+
   profile: {
     getProfile: `${profile}`,
     updateProfile: `${profile}`,
     uploadAvatar: `${profile}/avatar`,
     changePassword: `${profile}/change-password`,
   },
+
   permission: {
     getPermissonByRole: `${permission}/:roleID`,
   },
+
   enterprise: {
-    // Đăng ký doanh nghiệp (Draft + Payment)
+    // Enterprise Registration
     register: `${enterprise}/register`,
 
-    // Payment management
+    // Payment
     createPayment: `${enterprise}/payment`,
     getPayment: `${enterprise}/payment/:referenceCode`,
+    getPendingPayment: `${enterprise}/pending-payment`,
+    createRetryPayment: `${enterprise}/re-create-payment`,
     cancelPayment: `${enterprise}/payment/:referenceCode/cancel`,
 
-    // Subscription Plans
+    // Plans
     getPlans: `${enterprise}/plans`,
 
-    // Webhook (for SePay)
+    // Webhook
     webhook: `${enterprise}/webhook/sepay`,
     testWebhook: `${enterprise}/webhook/sepay/test/:referenceCode`,
 
-    // Enterprise Profile
+    // Enterprise profile
     getProfile: `${enterprise}/profile`,
     updateProfile: `${enterprise}/profile`,
 
+    // Reports
     acceptedReport: `${enterprise}/reports/:reportId/accept`,
     rejectedReport: `${enterprise}/reports/:reportId/reject`,
     waiting: `${enterprise}/reports/waiting`,
@@ -77,9 +81,15 @@ export const routesV1 = {
     // Order acceptance
     toggleOrderAcceptance: `${enterprise}/order-acceptance`,
     getOrderAcceptanceStatus: `${enterprise}/order-acceptance`,
+
+    // Subscription
+    getSubscription: `${enterprise}/subscription`,
+    renewSubscription: `${enterprise}/subscription/renew`,
+    getTransactionHistory: `${enterprise}/transactions`,
   },
+
   citizen: {
-    // Report management
+    // Reports
     createReport: `${citizen}/reports`,
     getReports: `${citizen}/reports`,
     getReport: `${citizen}/reports/:id`,
@@ -94,6 +104,7 @@ export const routesV1 = {
     redeemGift: `${citizen}/gifts/redeem`,
     getMyRedemptions: `${citizen}/gifts/redemptions`,
   },
+
   notification: {
     create: `${notification}`,
     getAll: `${notification}`,
@@ -103,7 +114,6 @@ export const routesV1 = {
     broadcastByRole: `${notification}/broadcast/role`,
   },
 
-  // Admin
   admin: {
     enterprisesMap: `admin/enterprises/map`,
     enterpriseDetailMap: `admin/enterprises/:id/map`,

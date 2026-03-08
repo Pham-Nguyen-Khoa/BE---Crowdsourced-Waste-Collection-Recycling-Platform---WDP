@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EnterpriseRepository } from '../repositories/enterprise.repository';
@@ -54,3 +55,71 @@ export class EnterpriseScheduler {
     }
   }
 }
+=======
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { EnterpriseRepository } from '../repositories/enterprise.repository';
+
+@Injectable()
+export class EnterpriseScheduler {
+    private readonly logger = new Logger(EnterpriseScheduler.name);
+
+    constructor(private readonly enterpriseRepository: EnterpriseRepository) { }
+
+    @Cron(CronExpression.EVERY_MINUTE)
+    async handleExpiredPayments() {
+        try {
+            const expiredPayments = await this.enterpriseRepository.findExpiredPayments();
+
+            for (const payment of expiredPayments) {
+                await this.enterpriseRepository.markPaymentAsFailed(payment.referenceCode);
+                this.logger.log(`Payment ${payment.referenceCode} marked as FAILED (expired)`);
+            }
+
+            if (expiredPayments.length > 0) {
+                this.logger.log(`Processed ${expiredPayments.length} expired payments`);
+            }
+        } catch (error) {
+            this.logger.error('Error handling expired payments:', error);
+        }
+    }
+
+
+    @Cron(CronExpression.EVERY_DAY_AT_3AM)
+    async cleanupPendingEnterprises() {
+        try {
+            const oldPendingEnterprises = await this.enterpriseRepository.findOldPendingEnterprises();
+
+            for (const enterprise of oldPendingEnterprises) {
+                await this.enterpriseRepository.deleteEnterprise(enterprise.id);
+                this.logger.log(`Deleted old pending enterprise: ${enterprise.name} (ID: ${enterprise.id})`);
+            }
+
+            if (oldPendingEnterprises.length > 0) {
+                this.logger.log(`Cleaned up ${oldPendingEnterprises.length} old pending enterprises`);
+            }
+        } catch (error) {
+            this.logger.error('Error cleaning up pending enterprises:', error);
+        }
+    }
+
+    @Cron(CronExpression.EVERY_MINUTE)
+    async handleExpiredSubscriptions() {
+        try {
+            const expiredSubscriptions = await this.enterpriseRepository.findExpiredSubscriptions();
+
+            for (const sub of expiredSubscriptions) {
+                await this.enterpriseRepository.deactivateSubscription(sub.id);
+                await this.enterpriseRepository.updateEnterpriseStatus(sub.enterpriseId, 'EXPIRED');
+                this.logger.log(`Subscription ${sub.id} for Enterprise ${sub.enterpriseId} deactivated and status set to EXPIRED`);
+            }
+
+            if (expiredSubscriptions.length > 0) {
+                this.logger.log(`Processed ${expiredSubscriptions.length} expired subscriptions`);
+            }
+        } catch (error) {
+            this.logger.error('Error handling expired subscriptions:', error);
+        }
+    }
+}
+>>>>>>> 630cc8dbeec8327299ddff79c4347b2b48f388ea

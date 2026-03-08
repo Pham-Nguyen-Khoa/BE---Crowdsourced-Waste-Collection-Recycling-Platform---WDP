@@ -16,40 +16,39 @@ import { GetDetailReportWaitingController } from './controllers/get-detail-repor
 import { GetDetailReportWaitingService } from './services/get-detail-report-waiting.service';
 import { ToggleOrderAcceptanceController } from './controllers/toggle-order-acceptance.controller';
 import { ToggleOrderAcceptanceService } from './services/toggle-order-acceptance.service';
-import { DispatchModule } from '../dispatch/dispatch.module';
+import { SubscriptionController } from './controllers/subscription.controller';
+
 
 const httpController = [
-  EnterpriseController,
-  EnterpriseAcceptedController,
-  EnterpriseRejectedController,
-  GetAllReportWaitingController,
-  GetDetailReportWaitingController,
-  ToggleOrderAcceptanceController,
-];
+    EnterpriseController,
+    EnterpriseAcceptedController,
+    EnterpriseRejectedController,
+    GetAllReportWaitingController,
+    GetDetailReportWaitingController,
+    ToggleOrderAcceptanceController,
+    SubscriptionController,
+]
 
-const Repository = [EnterpriseRepository];
+
+const Repository = [
+    EnterpriseRepository
+]
 
 const Services = [
-  EnterpriseService,
-  EnterpriseScheduler,
-  ReportAssignmentService,
-  GetDetailReportWaitingService,
-  ToggleOrderAcceptanceService,
+    EnterpriseService,
+    EnterpriseScheduler,
+    ReportAssignmentService,
+    GetDetailReportWaitingService,
+    ToggleOrderAcceptanceService,
 
-  MailerService,
-  JwtService,
-];
-
-import { ZoneModule } from '../zone/zone.module';
+    MailerService,
+    JwtService,
+]
 
 @Module({
-  imports: [PrismaModule, AuthModule, ZoneModule, DispatchModule],
-  controllers: [...httpController],
-  providers: [...Services, ...Repository],
-  exports: [
-    EnterpriseService,
-    EnterpriseRepository,
-    ToggleOrderAcceptanceService,
-  ],
+    imports: [PrismaModule, AuthModule],
+    controllers: [...httpController],
+    providers: [...Services, ...Repository],
+    exports: [EnterpriseService, EnterpriseRepository, ToggleOrderAcceptanceService]
 })
-export class EnterpriseModule {}
+export class EnterpriseModule { }

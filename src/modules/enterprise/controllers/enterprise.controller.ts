@@ -59,6 +59,7 @@ export class EnterpriseController {
     return await this.enterpriseService.getPayment(referenceCode, user.id);
   }
 
+<<<<<<< HEAD
   @ApiOperation({ summary: resourcesV1.CANCEL_PAYMENT.displayName })
   @ApiBearerAuth()
   @UseGuards(JWTGuard, PermissionGuard)
@@ -82,6 +83,32 @@ export class EnterpriseController {
     console.log('Raw SePay webhook:', webhookData);
     return await this.enterpriseService.processSePayWebhookRaw(webhookData);
   }
+=======
+
+    @ApiOperation({ summary: resourcesV1.GET_PAYMENT.displayName })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard)
+    @Get(routesV1.enterprise.getPayment.replace(':referenceCode', ':referenceCode'))
+    async getPayment(@Param('referenceCode') referenceCode: string, @GetUser() user) {
+        return await this.enterpriseService.getPayment(referenceCode, user.id);
+    }
+
+    @ApiOperation({ summary: 'Lấy thông tin thanh toán đang chờ xử lý' })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard)
+    @Get(routesV1.enterprise.getPendingPayment)
+    async getPendingPayment(@GetUser() user: User) {
+        return await this.enterpriseService.getPendingPaymentInfo(user.id);
+    }
+
+    @ApiOperation({ summary: 'Tạo lại mã thanh toán mới' })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard)
+    @Post(routesV1.enterprise.createRetryPayment)
+    async reCreatePayment(@GetUser() user: User) {
+        return await this.enterpriseService.retryPayment(user.id);
+    }
+>>>>>>> 630cc8dbeec8327299ddff79c4347b2b48f388ea
 
   @ApiOperation({ summary: resourcesV1.TEST_PAYMENT.displayName })
   // @UseGuards(JWTGuard, PermissionGuard)
