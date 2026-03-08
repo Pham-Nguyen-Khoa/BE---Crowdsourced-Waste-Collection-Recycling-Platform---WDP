@@ -5,26 +5,20 @@ import { JwtService } from '@nestjs/jwt';
 
 // Controllers
 import { GetEnterprisesMapController } from './controllers/get-enterprises-map.controller';
+import { GiftController } from './controllers/gift.controller';
 
 // Services
 import { GetEnterprisesMapService } from './services/get-enterprises-map.service';
+import { GiftAdminService } from './services/gift-admin.service';
 
-const httpController = [
-    GetEnterprisesMapController,
-];
+const httpController = [GetEnterprisesMapController, GiftController];
 
-const Services = [
-    GetEnterprisesMapService,
-];
+const Services = [GetEnterprisesMapService, GiftAdminService];
 
 @Module({
-    imports: [
-        PrismaModule,
-        AuthModule,
-    ],
-    controllers: [...httpController],
-    providers: [...Services],
-    exports: [GetEnterprisesMapService],
+  imports: [PrismaModule, AuthModule],
+  controllers: [...httpController],
+  providers: [...Services],
+  exports: [GetEnterprisesMapService],
 })
-export class AdminModule { }
-
+export class AdminModule {}

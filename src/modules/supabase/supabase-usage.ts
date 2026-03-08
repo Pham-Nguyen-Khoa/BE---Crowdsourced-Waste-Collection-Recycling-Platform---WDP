@@ -3,31 +3,34 @@
 import { SupabaseService } from './services/supabase.service';
 
 export class ExampleService {
-    constructor(private supabaseService: SupabaseService) { }
+  constructor(private supabaseService: SupabaseService) {}
 
-    // Upload 1 ảnh
-    async uploadAvatar(file: Express.Multer.File) {
-        try {
-            const imageUrl = await this.supabaseService.uploadImage(file, 'avatars');
-            // imageUrl sẽ là: https://your-project.supabase.co/storage/v1/object/public/uploads/avatars/123456789-image.jpg
-            return imageUrl;
-        } catch (error) {
-            console.error('Upload failed:', error);
-            throw error;
-        }
+  // Upload 1 ảnh
+  async uploadAvatar(file: Express.Multer.File) {
+    try {
+      const imageUrl = await this.supabaseService.uploadImage(file, 'avatars');
+      // imageUrl sẽ là: https://your-project.supabase.co/storage/v1/object/public/uploads/avatars/123456789-image.jpg
+      return imageUrl;
+    } catch (error) {
+      console.error('Upload failed:', error);
+      throw error;
     }
+  }
 
-    // Upload nhiều ảnh
-    async uploadGallery(files: Express.Multer.File[]) {
-        try {
-            const imageUrls = await this.supabaseService.uploadImages(files, 'gallery');
-            // imageUrls sẽ là array URLs
-            return imageUrls;
-        } catch (error) {
-            console.error('Upload failed:', error);
-            throw error;
-        }
+  // Upload nhiều ảnh
+  async uploadGallery(files: Express.Multer.File[]) {
+    try {
+      const imageUrls = await this.supabaseService.uploadImages(
+        files,
+        'gallery',
+      );
+      // imageUrls sẽ là array URLs
+      return imageUrls;
+    } catch (error) {
+      console.error('Upload failed:', error);
+      throw error;
     }
+  }
 }
 
 /*

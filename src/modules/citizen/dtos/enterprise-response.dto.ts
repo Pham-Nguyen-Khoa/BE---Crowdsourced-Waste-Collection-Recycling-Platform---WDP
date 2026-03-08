@@ -1,8 +1,8 @@
 export interface EnterpriseResponseDto {
-  enterpriseId: number
+  enterpriseId: number;
 }
 
 export interface EnterpriseResponseResponseDto {
-  success: boolean
-  message: string
+  success: boolean;
+  message: string;
 }

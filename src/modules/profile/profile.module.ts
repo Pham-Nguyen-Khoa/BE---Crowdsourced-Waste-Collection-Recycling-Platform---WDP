@@ -5,19 +5,14 @@ import { PrismaModule } from 'src/libs/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 import { SupabaseModule } from '../supabase/supabase.module';
 
-const httpController = [
-    ProfileController,
-]
+const httpController = [ProfileController];
 
-const Services = [
-    ProfileService,
-]
+const Services = [ProfileService];
 
 @Module({
-    imports: [PrismaModule, AuthModule, SupabaseModule],
-    controllers: [...httpController],
-    providers: [...Services],
-    exports: [ProfileService]
+  imports: [PrismaModule, AuthModule, SupabaseModule],
+  controllers: [...httpController],
+  providers: [...Services],
+  exports: [ProfileService],
 })
-export class ProfileModule { }
-
+export class ProfileModule {}

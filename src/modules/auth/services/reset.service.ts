@@ -24,5 +24,3 @@ export class ResetService {
     return successResponse(200, { ok: true }, 'Password updated');
   }
 }
-
-

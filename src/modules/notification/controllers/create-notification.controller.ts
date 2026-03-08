@@ -12,15 +12,15 @@ import { Permissions } from 'src/modules/auth/guards/permission.decorator';
 @ApiTags(`${resourcesV1.NOTIFICATION.parent}`)
 @Controller(routesV1.apiversion)
 export class CreateNotificationController {
-    constructor(private readonly notificationService: NotificationService) { }
+  constructor(private readonly notificationService: NotificationService) {}
 
-    @ApiOperation({ summary: resourcesV1.CREATE_NOTIFICATION.displayName })
-    @ApiBearerAuth()
-    @UseGuards(JWTGuard, PermissionGuard)
-    @Permissions(PermissionCode.CREATE_NOTIFICATION)
-    @Post(routesV1.notification.create)
-    async create(@Body() dto: CreateNotificationDto) {
-        // create + push realtime via socket
-        return await this.notificationService.createAndNotify(dto);
-    }
+  @ApiOperation({ summary: resourcesV1.CREATE_NOTIFICATION.displayName })
+  @ApiBearerAuth()
+  @UseGuards(JWTGuard, PermissionGuard)
+  @Permissions(PermissionCode.CREATE_NOTIFICATION)
+  @Post(routesV1.notification.create)
+  async create(@Body() dto: CreateNotificationDto) {
+    // create + push realtime via socket
+    return await this.notificationService.createAndNotify(dto);
+  }
 }

@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger"
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString,
   IsNotEmpty,
@@ -10,25 +10,27 @@ import {
   ValidateNested,
   IsEnum,
   Min,
-  Max
-} from "class-validator"
-import { Type, Transform } from "class-transformer"
-import { BadRequestException } from "@nestjs/common"
-import { WasteType } from "generated/prisma/enums"
+  Max,
+} from 'class-validator';
+import { Type, Transform } from 'class-transformer';
+import { BadRequestException } from '@nestjs/common';
+import { WasteType } from '@prisma/client';
 
 export class WasteItemDto {
   @ApiProperty({
     example: 'ORGANIC',
     description: 'Loại rác',
-    enum: WasteType
+    enum: WasteType,
   })
-  @Transform(({ value }) => typeof value === 'string' ? value.toUpperCase() : value)
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.toUpperCase() : value,
+  )
   @IsEnum(WasteType)
-  wasteType: WasteType
+  wasteType: WasteType;
 
   @ApiProperty({
     example: 5.5,
-    description: 'Trọng lượng tính bằng kg'
+    description: 'Trọng lượng tính bằng kg',
   })
   @Transform(({ value }) => {
     const num = typeof value === 'string' ? Number(value) : value;
@@ -36,84 +38,82 @@ export class WasteItemDto {
   })
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
-  weightKg: number
+  weightKg: number;
 }
-
-
 
 // DTO for multipart/form-data requests
 export class CreateReportMultipartDto {
   @ApiProperty({
     example: '123 Đường ABC, Quận 1, TP.HCM',
-    description: 'Địa chỉ thu gom rác'
+    description: 'Địa chỉ thu gom rác',
   })
   @IsString()
   @IsNotEmpty()
-  address: string
+  address: string;
 
   @ApiProperty({
     example: 10.8231,
     description: 'Vĩ độ (latitude)',
     minimum: -90,
-    maximum: 90
+    maximum: 90,
   })
   @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(-90)
   @Max(90)
-  latitude: number
+  latitude: number;
 
   @ApiProperty({
     example: 106.6297,
     description: 'Kinh độ (longitude)',
     minimum: -180,
-    maximum: 180
+    maximum: 180,
   })
   @Transform(({ value }) => parseFloat(value))
   @IsNumber()
   @Min(-180)
   @Max(180)
-  longitude: number
+  longitude: number;
 
   @ApiProperty({
     example: '79',
-    description: 'Mã tỉnh/thành phố'
+    description: 'Mã tỉnh/thành phố',
   })
   @IsString()
   @IsNotEmpty()
-  provinceCode: string
+  provinceCode: string;
 
   @ApiProperty({
     example: '769',
-    description: 'Mã quận/huyện'
+    description: 'Mã quận/huyện',
   })
   @IsString()
   @IsNotEmpty()
-  districtCode: string
+  districtCode: string;
 
   @ApiPropertyOptional({
     example: '26734',
-    description: 'Mã phường/xã'
+    description: 'Mã phường/xã',
   })
   @IsOptional()
   @IsString()
-  wardCode: string
+  wardCode: string;
 
   @ApiPropertyOptional({
     example: 'Có khoảng 5kg rác hữu cơ từ rau củ quả',
-    description: 'Mô tả chi tiết về rác (tùy chọn)'
+    description: 'Mô tả chi tiết về rác (tùy chọn)',
   })
   @IsOptional()
   @IsString()
-  description?: string
+  description?: string;
 
   @ApiProperty({
     type: [WasteItemDto],
     description: 'Danh sách các loại rác (JSON string)',
     example: JSON.stringify([
       { wasteType: 'ORGANIC', weightKg: 5.5 },
-      { wasteType: 'RECYCLABLE', weightKg: 2 }
-    ])
+      { wasteType: 'RECYCLABLE', weightKg: 2 },
+    ]),
   })
   @Transform(({ value }) => {
     if (typeof value === 'string') {
@@ -123,14 +123,12 @@ export class CreateReportMultipartDto {
         if (!Array.isArray(parsed)) {
           throw new Error();
         }
-        console.log(parsed)
+        console.log(parsed);
 
         return parsed;
       } catch {
-        console.log("hello")
-        throw new BadRequestException(
-          'wasteItems phải là JSON array hợp lệ'
-        );
+        console.log('hello');
+        throw new BadRequestException('wasteItems phải là JSON array hợp lệ');
       }
     }
     return value;

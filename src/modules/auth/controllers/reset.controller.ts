@@ -7,13 +7,11 @@ import { ResetService } from '../services/reset.service';
 @ApiTags('Auth')
 @Controller(routesV1.apiversion)
 export class ResetController {
-    constructor(private readonly resetService: ResetService) {}
+  constructor(private readonly resetService: ResetService) {}
 
-    @ApiOperation({ summary: 'Reset password' })
-    @Post(routesV1.auth.resetPassword)
-    async reset(@Body() data: ResetPasswordDto) {
-        return await this.resetService.resetPassword(data);
-    }
+  @ApiOperation({ summary: 'Reset password' })
+  @Post(routesV1.auth.resetPassword)
+  async reset(@Body() data: ResetPasswordDto) {
+    return await this.resetService.resetPassword(data);
+  }
 }
-
-

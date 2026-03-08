@@ -1,0 +1,41 @@
+﻿npx : Loaded Prisma config from 
+prisma.config.ts.
+At line:1 char:1
++ npx prisma migrate dev --name 
+finalize_zone_model > migrate_output.tx ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: 
+    (Loaded Prisma c...isma.config.ts.:Str  
+  ing) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommand 
+   Error
+ 
+
+Prisma schema loaded from 
+prisma\schema.prisma.
+Datasource "db": PostgreSQL database "WDP", schema "public" at "localhost:5432"
+
+
+Error: 
+ΓÜá∩╕Å We found changes that cannot be 
+executed:
+
+  ΓÇó Step 2 Added the required column 
+`enterpriseId` to the `Zone` table without 
+a default value. There are 1 rows in this 
+table, it is not possible to execute this 
+step.
+  ΓÇó Step 2 Added the required column 
+`provinceCode` to the `Zone` table without 
+a default value. There are 1 rows in this 
+table, it is not possible to execute this 
+step.
+
+You can use prisma migrate dev 
+--create-only to create the migration file, 
+and manually modify it to address the 
+underlying issue(s).
+Then run prisma migrate dev to apply it and 
+verify it works.
+

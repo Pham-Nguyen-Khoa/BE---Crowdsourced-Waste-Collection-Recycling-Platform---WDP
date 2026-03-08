@@ -1,0 +1,2 @@
+src/modules/dispatch/services/collector-task.service.ts(476,11): error TS2820: Type '"CANCELED"' is not assignable to type 'ReportStatus | EnumReportStatusFieldUpdateOperationsInput | undefined'. Did you mean '"CANCELLED"'?
+src/modules/dispatch/services/collector-task.service.ts(488,17): error TS2322: Type '"CANCELED"' is not assignable to type 'CollectorTaskStatus | EnumCollectorTaskStatusFieldUpdateOperationsInput | undefined'.

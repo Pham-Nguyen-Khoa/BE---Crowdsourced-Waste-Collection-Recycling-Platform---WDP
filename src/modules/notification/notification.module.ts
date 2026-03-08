@@ -9,24 +9,19 @@ import { PrismaModule } from 'src/libs/prisma/prisma.module';
 import { AuthModule } from '../auth/auth.module';
 
 const httpController = [
-    // CreateNotificationController,
-    GetAllNotificationController,
-    MarkReadNotificationController,
-    BroadcastNotificationController,
-]
+  // CreateNotificationController,
+  GetAllNotificationController,
+  MarkReadNotificationController,
+  BroadcastNotificationController,
+];
 
-const Services = [
-    NotificationService,
-    NotificationGateway,
-]
-
+const Services = [NotificationService, NotificationGateway];
 
 @Global()
 @Module({
-    imports: [PrismaModule, AuthModule],
-    controllers: [...httpController],
-    providers: [...Services],
-    exports: [NotificationService, NotificationGateway]
+  imports: [PrismaModule, AuthModule],
+  controllers: [...httpController],
+  providers: [...Services],
+  exports: [NotificationService, NotificationGateway],
 })
-export class NotificationModule { }
-
+export class NotificationModule {}

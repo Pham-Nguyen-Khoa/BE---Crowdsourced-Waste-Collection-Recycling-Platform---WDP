@@ -7,13 +7,11 @@ import { SignupService } from '../services/signup.service';
 @ApiTags('Auth')
 @Controller(routesV1.apiversion)
 export class SignupController {
-    constructor(private readonly signupService: SignupService) {}
+  constructor(private readonly signupService: SignupService) {}
 
-    @ApiOperation({ summary: 'Signup' })
-    @Post(routesV1.auth.signup)
-    async signup(@Body() data: SignupDto) {
-        return await this.signupService.signup(data);
-    }
+  @ApiOperation({ summary: 'Signup' })
+  @Post(routesV1.auth.signup)
+  async signup(@Body() data: SignupDto) {
+    return await this.signupService.signup(data);
+  }
 }
-
-

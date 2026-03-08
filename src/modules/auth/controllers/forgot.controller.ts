@@ -7,13 +7,11 @@ import { ForgotService } from '../services/forgot.service';
 @ApiTags('Auth')
 @Controller(routesV1.apiversion)
 export class ForgotController {
-    constructor(private readonly forgotService: ForgotService) {}
+  constructor(private readonly forgotService: ForgotService) {}
 
-    @ApiOperation({ summary: 'Forgot password - request OTP' })
-    @Post(routesV1.auth.forgotPassword)
-    async forgot(@Body() data: ForgotPasswordDto) {
-        return await this.forgotService.forgotPassword(data);
-    }
+  @ApiOperation({ summary: 'Forgot password - request OTP' })
+  @Post(routesV1.auth.forgotPassword)
+  async forgot(@Body() data: ForgotPasswordDto) {
+    return await this.forgotService.forgotPassword(data);
+  }
 }
-
-

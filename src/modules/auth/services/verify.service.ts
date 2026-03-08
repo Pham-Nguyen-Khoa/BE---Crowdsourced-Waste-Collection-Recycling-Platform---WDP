@@ -21,5 +21,3 @@ export class VerifyService {
     return successResponse(200, { ok: true }, 'OTP_VALID');
   }
 }
-
-

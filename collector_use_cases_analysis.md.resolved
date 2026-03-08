@@ -1,0 +1,90 @@
+# Phân tích Luồng Nghiệp vụ (Collector Domain)
+
+Dựa trên thiết kế và giới hạn phạm vi (chỉ tập trung vào yếu tố Collector độc lập, không bàn đến thuật toán Dispatch hay Report lifecycle), hệ thống thực tế cần xử lý các luồng nghiệp vụ sau.
+
+---
+
+## 1. Danh sách các Use Case chính
+
+Với scope hiện tại, Collector Domain thực tế vận hành qua 2 nhóm Use Case:
+
+### Nhóm 1: Quản trị Hồ sơ (Enterprise / Admin)
+- **Tạo nhân viên (Create Collector):**
+  - **Input:** Tên, mã NV, Giờ làm việc, Primary Zone (bắt buộc), Secondary Zone (tùy chọn).
+  - **Logic:** Validate Primary Zone có tồn tại. Tạo Record `Collector`, đồng thời bắt buộc tạo kèm `CollectorStatus` với giá trị mặc định là `OFFLINE`.
+- **Cập nhật hồ sơ (Update Profile):** 
+  - Thay đổi vị trí Zone hoặc điều chỉnh giờ làm việc.
+- **Khóa/Mở tài khoản (Toggle Active Status):**
+  - Enterprise set cờ `isActive = false` để cấm nhân viên làm việc (kể cả khi đang truy cập app).
+
+### Nhóm 2: Vận hành Thực địa (Collector Mobile App)
+- **Đăng nhập (Login):**
+  - Collector mở app, hệ thống xác thực.
+- **Go Online (Bật trực tuyến):**
+  - **Logic:** App gửi request báo cáo sẵn sàng. Hệ thống check cờ `isActive`. Nếu hợp lệ, đổi status từ `OFFLINE` sang `ONLINE_AVAILABLE`. 
+  - Lưu lại `deviceId` và set `lastOnlineAt = now()`.
+- **Cập nhật Vị trí (GPS Tracking):**
+  - **Logic:** Mobile App định kỳ (ví dụ: mỗi 30s) bắn tọa độ về. Hệ thống update `currentLatitude` và `currentLongitude` vào bảng Status.
+- **Go Offline (Tắt trực tuyến):**
+  - **Logic:** Collector chủ động tắt nhận đơn. Update status về lại `OFFLINE`, cập nhật `lastOfflineAt = now()`.
+
+---
+
+## 2. State Transition (Mô tả thực tế)
+
+Với yêu cầu "không bàn logic Dispatch", sự dịch chuyển trạng thái (State Transition) của Collector hoàn toàn xoay quanh các API tương tác của nhân viên và sự "âm thầm" cập nhật từ báo cáo của Report Domain:
+
+1. **`OFFLINE` -> `ONLINE_AVAILABLE`**: 
+   - **Kích hoạt bởi:** Collector bấm nút "Bắt đầu làm việc" trên Mobile App.
+2. **`ONLINE_AVAILABLE` -> `ONLINE_BUSY`**: 
+   - **Kích hoạt bởi:** Hệ thống chốt giao 1 đơn hàng thành công cho người này. Ngay lập tức trạng thái availability nhận giá trị `ONLINE_BUSY`. 
+3. **`ONLINE_BUSY` -> `ONLINE_AVAILABLE`**: 
+   - **Kích hoạt bởi:** Khi nhân viên báo cáo "Đã lấy rác xong" và không còn đơn nào khác trong hàng đợi (Active task count = 0).
+4. **`ONLINE_AVAILABLE` -> `OFFLINE`**: 
+   - **Kích hoạt bởi:** Collector tự lấy ngón tay gạt nút "Tắt ca" trên app.
+5. **`ONLINE_BUSY` -> `OFFLINE` (Ngoại lệ):**
+   - **Kích hoạt bởi:** Mất mạng quá lâu, hết ca giữa chừng hoặc App bị đóng ép buộc khi vẫn ôm đơn.
+
+---
+
+## 3. Rủi ro nghiệp vụ có thể phát sinh (Business Risks)
+
+Dù tách bạch, thiết kế này cũng tạo ra những điểm "tối" thực tế cần lưu ý:
+
+1. **Rủi ro rớt GPS (Ghost Location):**
+   - Collector đang `ONLINE_AVAILABLE` nhưng đi vào vùng mất sóng hoặc tắt quyền định vị ở OS. Trạng thái trên backend vẫn nhận là "Sẵn sàng" kèm toạ độ cũ rích. Dẫn đến sai lầm khi hệ thống lấy tọa độ này đi quét tìm người gần nhất.
+   - **Xử lý:** Cần một CronJob (ngoài scope này) để đánh dấu tự động `OFFLINE` nếu `lastOnlineAt` (thời điểm ping cuối) quá 5-10 phút.
+
+2. **Rủi ro "Ôm đơn và trốn" (Offline with Active Tasks):**
+   - Collector đang ở trạng thái `ONLINE_BUSY`, tức là đang đi lấy rác, thì cố tình tắt điện thoại hoặc bấm "Go Offline".
+   - **Xử lý:** Mặc dù Domain này dễ tính cho Update `OFFLINE`, nhưng ở Mobile App/API Gateway phải block hành động "Tắt mạng/Chốt ca" nếu Query Queue đang > 0. Nếu trốn ngang (Force quit), Report liên quan sẽ bị treo.
+
+3. **Rủi ro lệch ca làm việc:**
+   - Collector bấm `Go Online` lúc 22:00 đêm nhưng `workingHours` chỉ giới hạn từ 08:00 - 17:00.
+   - **Xử lý:** Thêm logic chặn ở API Go Online nếu ngoài khung giờ làm việc. (Hoặc cho bật nhưng cảnh báo).
+
+---
+
+## 4. Conflict tiềm ẩn giữa Collector Domain và Report Domain
+
+Vì chúng ta quyết định suy diễn Queue bằng SQL Query từ Report thay vì lưu cứng trong Profile Collector, một số conflict có thể nổ ra tại "vùng giáp ranh":
+
+1. **Race Condition (Tranh chấp đồng thời):**
+   - Hệ thống quét thấy Collector đang là `ONLINE_AVAILABLE`. Report Domain nhảy vào gán đơn.
+   - Cùng một phần nghìn giây đó, Collector bấm nút `Go Offline` xin đi về.
+   - **Hậu quả:** Giao việc cho một người vừa tắt ca.
+2. **Đồng bộ hóa trạng thái mồ côi:**
+   - Khi Collector bấm hoàn thành đơn cuối cùng ([Report](file:///c:/wdp/BE---Crowdsourced-Waste-Collection-Recycling-Platform---WDP/src/modules/citizen/services/create-report.service.ts#18-68) = COMPLETED). Trách nhiệm đẩy Collector từ `ONLINE_BUSY` về lại `ONLINE_AVAILABLE` là của ai?
+   - Nếu Collector Domain không biết trạng thái Report, và Report Domain thì sửa đổi dữ liệu `status`, sẽ xảy ra tình trạng: Report đã Done, nhưng Collector vẫn cứ bị treo chữ `BUSY` mãi mãi. 
+
+*(Ghi chú: Để giải quyết conflict #2, hệ thống thực tế thường dùng Domain Events (EventEmitter/Webhook) để Report sau khi update xong sẽ "báo mộng" sang Collector Domain bằng một lệnh `CheckAndUpdateAvailability()`)*.
+
+---
+
+## 5. Kết luận: Đã đủ để bắt đầu code chưa?
+
+**Trả lời:** ✅ **Đã quá đủ để bắt đầu code cho Collector Domain.**
+
+- **Về cấu trúc dữ liệu:** Schema Prisma đã hoàn thiện vững chãi với constraint 1-1, index đủ đầy cho Enterprise, Zone và Location.
+- **Về Module Logic:** Ranh giới rõ ràng. Chỉ cần viết các Controller/Service phục vụ đúng các Use Case (Tạo, Login, Ping GPS, Cập nhật Profile). Không bị sa đà dính dáng đến các bảng Report phức tạp.
+- **Về khả năng mở rộng:** Cách tiếp cận tách Event và suy diễn Queue giúp cho các tính năng tương lai (Dispatch logic, Caching bản đồ) được thực hiện một cách độc lập mà không phải đập đi xây lại module Collector này.

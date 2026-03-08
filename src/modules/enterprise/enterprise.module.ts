@@ -16,37 +16,40 @@ import { GetDetailReportWaitingController } from './controllers/get-detail-repor
 import { GetDetailReportWaitingService } from './services/get-detail-report-waiting.service';
 import { ToggleOrderAcceptanceController } from './controllers/toggle-order-acceptance.controller';
 import { ToggleOrderAcceptanceService } from './services/toggle-order-acceptance.service';
-
+import { DispatchModule } from '../dispatch/dispatch.module';
 
 const httpController = [
-    EnterpriseController,
-    EnterpriseAcceptedController,
-    EnterpriseRejectedController,
-    GetAllReportWaitingController,
-    GetDetailReportWaitingController,
-    ToggleOrderAcceptanceController,
-]
+  EnterpriseController,
+  EnterpriseAcceptedController,
+  EnterpriseRejectedController,
+  GetAllReportWaitingController,
+  GetDetailReportWaitingController,
+  ToggleOrderAcceptanceController,
+];
 
-
-const Repository = [
-    EnterpriseRepository
-]
+const Repository = [EnterpriseRepository];
 
 const Services = [
-    EnterpriseService,
-    EnterpriseScheduler,
-    ReportAssignmentService,
-    GetDetailReportWaitingService,
-    ToggleOrderAcceptanceService,
+  EnterpriseService,
+  EnterpriseScheduler,
+  ReportAssignmentService,
+  GetDetailReportWaitingService,
+  ToggleOrderAcceptanceService,
 
-    MailerService,
-    JwtService,
-]
+  MailerService,
+  JwtService,
+];
+
+import { ZoneModule } from '../zone/zone.module';
 
 @Module({
-    imports: [PrismaModule, AuthModule],
-    controllers: [...httpController],
-    providers: [...Services, ...Repository],
-    exports: [EnterpriseService, EnterpriseRepository, ToggleOrderAcceptanceService]
+  imports: [PrismaModule, AuthModule, ZoneModule, DispatchModule],
+  controllers: [...httpController],
+  providers: [...Services, ...Repository],
+  exports: [
+    EnterpriseService,
+    EnterpriseRepository,
+    ToggleOrderAcceptanceService,
+  ],
 })
-export class EnterpriseModule { }
+export class EnterpriseModule {}

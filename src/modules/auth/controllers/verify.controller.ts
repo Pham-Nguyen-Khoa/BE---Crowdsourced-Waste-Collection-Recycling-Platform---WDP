@@ -7,13 +7,11 @@ import { VerifyService } from '../services/verify.service';
 @ApiTags('Auth')
 @Controller(routesV1.apiversion)
 export class VerifyController {
-    constructor(private readonly verifyService: VerifyService) {}
+  constructor(private readonly verifyService: VerifyService) {}
 
-    @ApiOperation({ summary: 'Verify OTP' })
-    @Post(routesV1.auth.veifyOTP)
-    async verify(@Body() data: VerifyOtpDto) {
-        return await this.verifyService.verifyOtp(data);
-    }
+  @ApiOperation({ summary: 'Verify OTP' })
+  @Post(routesV1.auth.veifyOTP)
+  async verify(@Body() data: VerifyOtpDto) {
+    return await this.verifyService.verifyOtp(data);
+  }
 }
-
-

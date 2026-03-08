@@ -18,9 +18,7 @@ export class SignupService {
       fullName: dto.fullName,
       phone: dto.phone,
     });
-    const { password, ...data } = created as any;
+    const { password, ...data } = created;
     return successResponse(201, data, 'Đăng ký thành công');
   }
 }
-
-

@@ -12,15 +12,14 @@ import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 @ApiTags(`${resourcesV1.NOTIFICATION.parent}`)
 @Controller(routesV1.apiversion)
 export class BroadcastNotificationController {
-    constructor(private readonly notificationService: NotificationService) { }
+  constructor(private readonly notificationService: NotificationService) {}
 
-    @ApiOperation({ summary: resourcesV1.BROADCAST_ALL_NOTIFICATION.displayName })
-    @ApiBearerAuth()
-    @UseGuards(JWTGuard, RolesGuard)
-    @Roles(4)
-    @Post(routesV1.notification.broadcastAll)
-    async broadcast(@Body() dto: BroadcastAllNotificationDto) {
-        return await this.notificationService.broadcastToAll(dto);
-    }
+  @ApiOperation({ summary: resourcesV1.BROADCAST_ALL_NOTIFICATION.displayName })
+  @ApiBearerAuth()
+  @UseGuards(JWTGuard, RolesGuard)
+  @Roles(4)
+  @Post(routesV1.notification.broadcastAll)
+  async broadcast(@Body() dto: BroadcastAllNotificationDto) {
+    return await this.notificationService.broadcastToAll(dto);
+  }
 }
-
