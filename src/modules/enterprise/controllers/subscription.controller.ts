@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from "@ne
 import { routesV1 } from "src/configs/app.routes";
 import { JWTGuard } from "src/modules/auth/guards/jwt.guard";
 import { GetUser } from "src/modules/auth/guards/get-user.decorator";
-import { User } from "generated/prisma/client";
+import { User } from "@prisma/client";
 import { EnterpriseService } from "../services/enterprise.service";
 import { RolesGuard } from "src/modules/auth/guards/roles.guard";
 import { Roles } from "src/modules/auth/guards/roles.decorator";

@@ -29,7 +29,7 @@ export class CollectorTaskService {
     private readonly eventEmitter: EventEmitter2,
     private readonly notificationService: NotificationService,
     private readonly supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   async getMyPendingTasks(collectorId: number) {
     const tasks = await this.prisma.collectorTaskAttempt.findMany({
@@ -51,7 +51,7 @@ export class CollectorTaskService {
 
     const formattedTasks = tasks.map((task) => {
       const { wasteItems, ...reportRest } = task.report;
-      
+
       const formattedWasteItems = wasteItems.map((item) => ({
         wasteType: item.wasteType,
         weightKg: item.weightKg ? Number(item.weightKg) : null,
@@ -725,15 +725,7 @@ export class CollectorTaskService {
           type: PointTransactionType.SPEND,
           amount: penaltyPoint,
           balanceAfter: updatedCitizen.balance,
-        },
-      });
-
-      await tx.citizenPointHistory.create({
-        data: {
-          citizenId: report.citizenId,
-          reportId: reportId,
-          point: -penaltyPoint,
-          reason: `Bị trừ uy tín do báo cáo sự cố không có rác (Lý do: ${reason})`,
+          description: `Bị trừ uy tín do báo cáo sự cố không có rác (Lý do: ${reason})`,
         },
       });
 

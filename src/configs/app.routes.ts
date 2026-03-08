@@ -103,6 +103,8 @@ export const routesV1 = {
     getGifts: `${citizen}/gifts`,
     redeemGift: `${citizen}/gifts/redeem`,
     getMyRedemptions: `${citizen}/gifts/redemptions`,
+    getMyPoints: `${citizen}/loyalty/points`,
+    getLeaderboard: `${citizen}/leaderboard`,
   },
 
   notification: {

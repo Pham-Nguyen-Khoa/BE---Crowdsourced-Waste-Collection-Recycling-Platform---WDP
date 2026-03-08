@@ -1,14 +1,12 @@
-import {
-  Injectable,
-  NotFoundException,
-  BadRequestException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../libs/prisma/prisma.service';
 import { RedeemGiftDto } from '../dtos/redeem-gift.dto';
 import { PointTransactionType } from '@prisma/client';
 import { NotificationService } from '../../notification/services/notification.service';
-import { successResponse } from 'src/common/utils/response.util';
+import {
+  successResponse,
+  errorResponse,
+} from 'src/common/utils/response.util';
 
 @Injectable()
 export class LoyaltyService {
@@ -17,38 +15,37 @@ export class LoyaltyService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async getAvailableGifts() {
-    const gifts = await (this.prisma as any).gift.findMany({
+    const gifts = await this.prisma.gift.findMany({
       where: { isActive: true, stock: { gt: 0 } },
       orderBy: { requiredPoints: 'asc' },
     });
-    return successResponse(200,gifts,  'Lấy danh sách quà tặng thành công');
+    return successResponse(200, gifts, 'Lấy danh sách quà tặng thành công');
   }
 
   async redeemGift(citizenId: number, dto: RedeemGiftDto) {
-    return await this.prisma.$transaction(async (tx_raw) => {
-      const tx = tx_raw as any;
+    return await this.prisma.$transaction(async (tx) => {
       // 1. Fetch User and Gift
       const user = await tx.user.findUnique({ where: { id: citizenId } });
       const gift = await tx.gift.findUnique({ where: { id: dto.giftId } });
 
       if (!user) {
-        throw new NotFoundException('Không tìm thấy tài khoản công dân');
+        errorResponse(400, 'Không tìm thấy tài khoản công dân');
       }
 
       if (!gift || !gift.isActive) {
-        throw new NotFoundException('Quà tặng không tồn tại hoặc đã bị khoá');
+        errorResponse(400, 'Quà tặng không tồn tại hoặc đã bị khoá');
       }
 
       if (gift.stock <= 0) {
-        throw new BadRequestException('Quà tặng này đã hết suất');
+        errorResponse(400, 'Quà tặng này đã hết suất');
       }
 
       // 2. Check points
       if (user.balance < gift.requiredPoints) {
-        throw new BadRequestException(
+        errorResponse(400,
           `Bạn không đủ điểm. Cần ${gift.requiredPoints} nhưng bạn chỉ có ${user.balance}`,
         );
       }
@@ -65,36 +62,20 @@ export class LoyaltyService {
         data: { stock: { decrement: 1 } },
       });
 
-      // 4. Create Redemption Record
-      const redemption = await tx.redemption.create({
+      // 4. Create Point Transaction (Universal history)
+      const transaction = await tx.pointTransaction.create({
         data: {
           userId: citizenId,
           giftId: dto.giftId,
-          pointsUsed: gift.requiredPoints,
-          status: 'PENDING',
+          type: PointTransactionType.SPEND,
+          amount: gift.requiredPoints,
+          balanceAfter: updatedUser.balance,
+          description: `Đổi quà: ${gift.name}`,
         },
         include: { gift: true },
       });
 
-      // 5. Audit logs
-      await tx.pointTransaction.create({
-        data: {
-          userId: citizenId,
-          type: PointTransactionType.SPEND,
-          amount: gift.requiredPoints,
-          balanceAfter: updatedUser.balance,
-        },
-      });
-
-      await tx.citizenPointHistory.create({
-        data: {
-          citizenId,
-          point: -gift.requiredPoints,
-          reason: `Đổi quà: ${gift.name}`,
-        },
-      });
-
-      // 6. Notify user (Non-blocking)
+      // 5. Notify user (Non-blocking)
       setImmediate(async () => {
         try {
           await this.notificationService.createAndNotify({
@@ -104,28 +85,48 @@ export class LoyaltyService {
             type: 'SYSTEM',
             meta: {
               giftId: gift.id,
-              redemptionId: redemption.id,
+              transactionId: transaction.id,
               type: 'GIFT_REDEEMED',
             },
           });
         } catch (err) {
           this.logger.error(
-            `Failed to notify user on gift redemption ${redemption.id}`,
+            `Failed to notify user on gift redemption for user ${citizenId}`,
             err?.message,
           );
         }
       });
 
-      return successResponse(200, redemption, 'Đổi quà thành công');
+      return successResponse(200, transaction, 'Đổi quà thành công');
     });
   }
 
   async getMyRedemptions(citizenId: number) {
-    const redemptions = await (this.prisma as any).redemption.findMany({
-      where: { userId: citizenId },
+    const transactions = await this.prisma.pointTransaction.findMany({
+      where: {
+        userId: citizenId,
+        giftId: { not: null }
+      },
       include: { gift: true },
       orderBy: { createdAt: 'desc' },
     });
-    return successResponse(200, redemptions, 'Lấy lịch sử đổi quà thành công'); 
+    return successResponse(200, transactions, 'Lấy lịch sử đổi quà thành công');
+  }
+
+  async getMyPoints(citizenId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: citizenId },
+      select: { balance: true },
+    });
+
+    if (!user) {
+      return errorResponse(400, 'Không tìm thấy tài khoản công dân');
+    }
+
+    return successResponse(
+      200,
+      { points: user.balance },
+      'Lấy số điểm hiện tại thành công',
+    );
   }
 }

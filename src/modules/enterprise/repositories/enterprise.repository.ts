@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/libs/prisma/prisma.service';
-import { PaymentStatus, PaymentMethod, EnterpriseStatus } from 'generated/prisma/enums';
+import { PaymentStatus, PaymentMethod, EnterpriseStatus } from '@prisma/client';
 
 @Injectable()
 export class EnterpriseRepository {
@@ -190,6 +190,54 @@ enterpriseId,
             },
             skip,
             take
+        });
+    }
+
+    /**
+     * Tìm các báo cáo đã được doanh nghiệp chấp nhận
+     */
+    async findAcceptedReportsByUserId(userId: number) {
+        const enterprise = await this.prisma.enterprise.findFirst({
+            where: { userId, deletedAt: null },
+            select: { id: true }
+        });
+
+        if (!enterprise) return [];
+
+        return this.prisma.reportAssignment.findMany({
+            where: {
+                enterpriseId: enterprise.id,
+                report: {
+                    deletedAt: null
+                }
+            },
+            include: {
+                report: {
+                    include: {
+                        wasteItems: true,
+                        images: true,
+                        citizen: {
+                            select: {
+                                fullName: true,
+                                phone: true,
+                            },
+                        },
+                    },
+                },
+                collector: {
+                    include: {
+                        user: {
+                            select: {
+                                fullName: true,
+                                phone: true,
+                                avatar: true
+                            }
+                        },
+                        status: true
+                    }
+                }
+            },
+            orderBy: { assignedAt: 'desc' }
         });
     }
 

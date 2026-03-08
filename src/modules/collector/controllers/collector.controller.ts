@@ -8,6 +8,7 @@ import {
   Param,
   UseInterceptors,
   UploadedFiles,
+  Query,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import {
@@ -30,14 +31,14 @@ import { UpdateLocationDto } from 'src/modules/collector/dtos/update-location.dt
 import { ReportDisputeDto } from '../dtos/report-dispute.dto';
 
 @ApiTags('Collectors')
-@Controller('collectors')
+@Controller('/api/v1/collectors')
 @ApiBearerAuth()
 export class CollectorController {
   constructor(
     private readonly collectorService: CollectorService,
     private readonly statusService: UpdateCollectorStatusService,
     private readonly taskService: CollectorTaskService,
-  ) {}
+  ) { }
 
   @ApiOperation({ summary: 'Create a new collector (Enterprise only)' })
   @UseGuards(JWTGuard, EnterpriseRoleGuard)
@@ -127,6 +128,13 @@ export class CollectorController {
   @Get('enterprises/accepted')
   async getAcceptedEnterprises(@GetUser() user: any) {
     return this.collectorService.getAcceptedEnterprises(user.collectorId);
+  }
+
+  @ApiOperation({ summary: 'Xem lịch sử các report đã hoàn thành' })
+  @UseGuards(JWTGuard, CollectorRoleGuard)
+  @Get('reports/history')
+  async getReportHistory(@GetUser() user: any, @Query() query: any) {
+    return this.collectorService.getReportHistory(user.collectorId, query);
   }
 
   @ApiOperation({ summary: 'Hoàn tất thu gom rác' })

@@ -28,6 +28,8 @@ import { ComplaintController } from './controllers/complaint.controller';
 import { LoyaltyController } from './controllers/loyalty.controller';
 import { ComplaintService } from './services/complaint.service';
 import { LoyaltyService } from './services/loyalty.service';
+import { LeaderboardService } from './services/leaderboard.service';
+import { LeaderboardController } from './controllers/leaderboard.controller';
 
 const httpController = [
   GetAllReportController,
@@ -38,6 +40,7 @@ const httpController = [
   CitizenPresenceController,
   ComplaintController,
   LoyaltyController,
+  LeaderboardController,
 ];
 
 const Repository = [];
@@ -56,6 +59,7 @@ const Services = [
   CitizenPresenceService,
   ComplaintService,
   LoyaltyService,
+  LeaderboardService,
   // NotificationService được cung cấp qua NotificationModule (đã import ở trên)
 ];
 

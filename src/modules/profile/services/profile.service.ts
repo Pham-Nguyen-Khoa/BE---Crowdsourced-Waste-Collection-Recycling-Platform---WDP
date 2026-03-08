@@ -16,7 +16,7 @@ export class ProfileService {
   constructor(
     private prisma: PrismaService,
     private supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   /**
    * Lấy thông tin profile của user

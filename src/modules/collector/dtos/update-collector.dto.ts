@@ -1,11 +1,5 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class UpdateCollectorDto {
   @ApiProperty({
@@ -26,21 +20,12 @@ export class UpdateCollectorDto {
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({
-    enum: ['OFFLINE', 'ONLINE_AVAILABLE', 'ONLINE_BUSY'],
-    description: 'Trạng thái hoạt động',
+  @ApiProperty({
+    type: 'string',
+    format: 'binary',
+    description: 'Ảnh đại diện collector',
+    required: false,
   })
   @IsOptional()
-  @IsEnum(['OFFLINE', 'ONLINE_AVAILABLE', 'ONLINE_BUSY'])
-  status?: string;
-
-  @ApiPropertyOptional({ example: 1 })
-  @IsOptional()
-  @IsNumber()
-  primaryZoneId?: number;
-
-  @ApiPropertyOptional({ example: 2 })
-  @IsOptional()
-  @IsNumber()
-  secondaryZoneId?: number;
+  avatar?: any;
 }

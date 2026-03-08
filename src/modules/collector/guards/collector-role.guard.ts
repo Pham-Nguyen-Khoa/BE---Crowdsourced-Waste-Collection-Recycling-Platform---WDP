@@ -9,7 +9,7 @@ import { PrismaService } from 'src/libs/prisma/prisma.service';
 
 @Injectable()
 export class CollectorRoleGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -27,6 +27,7 @@ export class CollectorRoleGuard implements CanActivate {
     }
 
     // Fetch collector profile to ensure it exists and attach collectorId
+    console.log(user);
     const collector = await this.prisma.collector.findUnique({
       where: { userId: user.id, deletedAt: null },
       select: { id: true, isActive: true },

@@ -69,11 +69,8 @@ export class RewardService {
         // Tính reward từng loại rác rồi cộng lại
         let finalReward = 0;
         const rewardBreakdown: string[] = [];
+        const baseReward = 100; // Default when PointConfig is removed
         for (const item of payload.perTypeWeights) {
-          const config = await tx.pointConfig.findFirst({
-            where: { wasteType: item.wasteType as any },
-          });
-          const baseReward = config ? config.basePoint : 100;
           const wasteTypeMultiplier = wasteTypeMultipliers[item.wasteType] ?? 1.0;
           const itemReward = Math.round(
             baseReward * item.weight * accuracyMultiplier * wasteTypeMultiplier,
@@ -89,7 +86,7 @@ export class RewardService {
           select: { balance: true },
         });
 
-        // 4. Insert PointTransaction (audit log)
+        // 4. Insert PointTransaction (audit log with description)
         await tx.pointTransaction.create({
           data: {
             reportId: payload.reportId,
@@ -97,16 +94,7 @@ export class RewardService {
             type: PointTransactionType.EARN,
             amount: finalReward,
             balanceAfter: updatedCitizenUser.balance,
-          },
-        });
-
-        // 5. Insert CitizenPointHistory (lịch sử điểm theo báo cáo)
-        await tx.citizenPointHistory.create({
-          data: {
-            citizenId: payload.citizenId,
-            reportId: payload.reportId,
-            point: finalReward,
-            reason: `Thu gom ${payload.totalActualWeight}kg (${rewardBreakdown.join('; ')}) – độ chính xác: ${payload.accuracyBucket}`,
+            description: `Thu gom ${payload.totalActualWeight}kg (${rewardBreakdown.join('; ')}) – độ chính xác: ${payload.accuracyBucket}`,
           },
         });
 

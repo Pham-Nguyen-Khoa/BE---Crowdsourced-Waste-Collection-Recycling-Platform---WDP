@@ -6,6 +6,7 @@ import {
   IsString,
   Min,
 } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class UpdateGiftDto {
   @ApiProperty({ example: 'Voucher VinMart 100k', required: false })
@@ -22,12 +23,14 @@ export class UpdateGiftDto {
   description?: string;
 
   @ApiProperty({ example: 1000, required: false })
+  @Type(() => Number)
   @IsNumber()
   @Min(1)
   @IsOptional()
   requiredPoints?: number;
 
   @ApiProperty({ example: 50, required: false })
+  @Type(() => Number)
   @IsNumber()
   @Min(0)
   @IsOptional()
@@ -46,7 +49,16 @@ export class UpdateGiftDto {
     required: false,
     description: 'true = hiển thị, false = ẩn khỏi danh sách',
   })
+  @Transform(({ value }) => {
+    if (value === 'true' || value === true) return true;
+    if (value === 'false' || value === false) return false;
+    return value;
+  })
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsOptional()
+  image?: any;
 }

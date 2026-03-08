@@ -658,6 +658,47 @@ export class EnterpriseService {
     }
 
     /**
+     * Lấy danh sách các báo cáo đã được doanh nghiệp chấp nhận
+     */
+    async getAcceptedReports(userId: number) {
+        try {
+            const assignments = await this.enterpriseRepository.findAcceptedReportsByUserId(userId);
+            
+            const formattedReports = assignments.map(a => ({
+                id: a.report.id,
+                reportId: a.reportId,
+                status: a.report.status,
+                address: a.report.address,
+                latitude: Number(a.report.latitude),
+                longitude: Number(a.report.longitude),
+                description: a.report.description,
+                assignedAt: a.assignedAt,
+                completedAt: a.completedAt,
+                wasteItems: a.report.wasteItems.map(wi => ({
+                    wasteType: wi.wasteType,
+                    weightKg: Number(wi.weightKg)
+                })),
+                images: a.report.images.map(img => img.imageUrl),
+                citizen: {
+                    fullName: a.report.citizen.fullName,
+                    phone: a.report.citizen.phone
+                },
+                collector: a.collector ? {
+                    id: a.collector.id,
+                    fullName: a.collector.user.fullName,
+                    phone: a.collector.user.phone,
+                    avatar: a.collector.user.avatar
+                } : null
+            }));
+
+            return successResponse(200, formattedReports, 'Lấy danh sách báo cáo đã chấp nhận thành công');
+        } catch (error) {
+            console.error('Error in getAcceptedReports:', error);
+            return errorResponse(500, 'Lỗi lấy danh sách báo cáo', 'GET_ACCEPTED_FAILED');
+        }
+    }
+
+    /**
      * Lấy lịch sử giao dịch (thành công) của doanh nghiệp
      */
     async getTransactionHistory(userId: number, page?: number, limit?: number) {

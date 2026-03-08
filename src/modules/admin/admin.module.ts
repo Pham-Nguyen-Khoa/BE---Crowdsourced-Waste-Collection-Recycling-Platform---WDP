@@ -11,12 +11,14 @@ import { GiftController } from './controllers/gift.controller';
 import { GetEnterprisesMapService } from './services/get-enterprises-map.service';
 import { GiftAdminService } from './services/gift-admin.service';
 
+import { SupabaseModule } from '../supabase/supabase.module';
+
 const httpController = [GetEnterprisesMapController, GiftController];
 
 const Services = [GetEnterprisesMapService, GiftAdminService];
 
 @Module({
-  imports: [PrismaModule, AuthModule],
+  imports: [PrismaModule, AuthModule, SupabaseModule],
   controllers: [...httpController],
   providers: [...Services],
   exports: [GetEnterprisesMapService],

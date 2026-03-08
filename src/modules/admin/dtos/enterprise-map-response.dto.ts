@@ -1,5 +1,5 @@
 import { ApiProperty } from "@nestjs/swagger";
-import { EnterpriseStatus } from "generated/prisma/enums";
+import { EnterpriseStatus } from "@prisma/client";
 
 export class EnterpriseMapResponseDto {
     @ApiProperty({ description: 'ID doanh nghiệp', example: 1 })

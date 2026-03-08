@@ -2,6 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { PrismaService } from "src/libs/prisma/prisma.service";
 import { errorResponse, successResponse } from "src/common/utils/response.util";
 import { EnterpriseMapResponseDto } from "../dtos/enterprise-map-response.dto";
+import { CollectorAvailability } from "@prisma/client";
 
 @Injectable()
 export class GetEnterprisesMapService {
@@ -44,7 +45,7 @@ export class GetEnterprisesMapService {
                 longitude: Number(e.longitude),
                 status: e.status,
                 capacityKg: Number(e.capacityKg),
-                collectorCount: e._count.collectors,
+                collectorCount: e._count?.collectors || 0,
                 avatar: e.user.avatar || undefined,
                 contactPhone: e.user.phone || undefined,
             }));
@@ -85,7 +86,7 @@ export class GetEnterprisesMapService {
                         where: { deletedAt: null },
                         include: {
                             status: {
-                                select: { status: true }
+                                select: { availability: true }
                             }
                         }
                     },
@@ -103,9 +104,10 @@ export class GetEnterprisesMapService {
             }
 
             // Tính toán stats collector
-            const onlineCollectors = enterprise.collectors.filter(c => 
-                c.status?.status === 'AVAILABLE' || c.status?.status === 'ON_TASK'
-            ).length;
+            const onlineCollectors = enterprise.collectors.filter(c => {
+                const avail = c.status?.availability as string;
+                return avail === 'AVAILABLE' || avail === 'ON_TASK';
+            }).length;
             
             const offlineCollectors = enterprise.collectors.length - onlineCollectors;
 
@@ -144,14 +146,14 @@ export class GetEnterprisesMapService {
 
                     // Thống kê
                     stats: {
-                        totalCollectors: enterprise._count.collectors,
+                        totalCollectors: enterprise._count?.collectors || 0,
                         onlineCollectors,
                         offlineCollectors,
-                        totalReports: enterprise._count.reportAssignments
+                        totalReports: enterprise._count?.reportAssignments || 0
                     },
                     
                     // Giữ lại collectorCount cho FE cũ nếu cần
-                    collectorCount: enterprise._count.collectors,
+                    collectorCount: enterprise._count?.collectors || 0,
                 },
                 // FE đã call và gắn rồi nên giữ lại field nhưng xóa array cho nhẹ (hoặc trả rỗng như user muốn)
                 collectors: [], 

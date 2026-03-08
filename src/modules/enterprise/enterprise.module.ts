@@ -19,6 +19,8 @@ import { ToggleOrderAcceptanceService } from './services/toggle-order-acceptance
 import { SubscriptionController } from './controllers/subscription.controller';
 
 
+import { CitizenModule } from '../citizen/citizen.module';
+
 const httpController = [
     EnterpriseController,
     EnterpriseAcceptedController,
@@ -37,7 +39,6 @@ const Repository = [
 const Services = [
     EnterpriseService,
     EnterpriseScheduler,
-    ReportAssignmentService,
     GetDetailReportWaitingService,
     ToggleOrderAcceptanceService,
 
@@ -46,7 +47,7 @@ const Services = [
 ]
 
 @Module({
-    imports: [PrismaModule, AuthModule],
+    imports: [PrismaModule, AuthModule, CitizenModule],
     controllers: [...httpController],
     providers: [...Services, ...Repository],
     exports: [EnterpriseService, EnterpriseRepository, ToggleOrderAcceptanceService]

@@ -45,6 +45,17 @@ function convertDates(value: any): any {
 
   // Trường hợp là plain object
   if (typeof value === 'object') {
+    // Check nếu là Prisma.Decimal (có cấu trúc { s, e, d })
+    if (
+      value !== null &&
+      value.hasOwnProperty('s') &&
+      value.hasOwnProperty('e') &&
+      value.hasOwnProperty('d') &&
+      Array.isArray(value.d)
+    ) {
+      return Number(value);
+    }
+
     const result: Record<string, any> = {};
     for (const key of Object.keys(value)) {
       result[key] = convertDates(value[key]);

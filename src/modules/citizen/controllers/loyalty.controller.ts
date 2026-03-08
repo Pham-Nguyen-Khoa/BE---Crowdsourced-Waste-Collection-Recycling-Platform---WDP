@@ -6,13 +6,16 @@ import { JWTGuard } from '../../auth/guards/jwt.guard';
 import { GetUser } from '../../auth/guards/get-user.decorator';
 import { User } from '@prisma/client';
 import { routesV1 } from '../../../configs/app.routes';
+import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
+import { Roles } from 'src/modules/auth/guards/roles.decorator';
 
 @ApiTags('Citizen Loyalty')
 @Controller(routesV1.apiversion)
-@UseGuards(JWTGuard)
+@UseGuards(JWTGuard, RolesGuard)
+@Roles(1)
 @ApiBearerAuth()
 export class LoyaltyController {
-  constructor(private readonly loyaltyService: LoyaltyService) {}
+  constructor(private readonly loyaltyService: LoyaltyService) { }
 
   @Get(routesV1.citizen.getGifts)
   @ApiOperation({ summary: 'Xem danh sách quà tặng khả dụng' })
@@ -30,5 +33,11 @@ export class LoyaltyController {
   @ApiOperation({ summary: 'Xem lịch sử đổi quà của tôi' })
   async getMyRedemptions(@GetUser() user: User) {
     return await this.loyaltyService.getMyRedemptions(user.id);
+  }
+
+  @Get(routesV1.citizen.getMyPoints)
+  @ApiOperation({ summary: 'Xem số điểm hiện tại của tôi' })
+  async getMyPoints(@GetUser() user: User) {
+    return await this.loyaltyService.getMyPoints(user.id);
   }
 }

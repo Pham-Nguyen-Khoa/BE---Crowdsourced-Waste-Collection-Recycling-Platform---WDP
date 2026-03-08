@@ -14,7 +14,7 @@ export class CollectorService {
   private readonly DEFAULT_COLLECTOR_ROLE_ID = 3;
   private readonly logger = new Logger(CollectorService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async createCollector(enterpriseId: number, dto: CreateCollectorDto) {
     // 1. Uniqueness Checks for Email
@@ -38,7 +38,7 @@ export class CollectorService {
     }
 
     const isSoftDeletedUser = !!existingEmail?.deletedAt;
-    const defaultPassword = await hash('Collector@123', 10);
+    const defaultPassword = await hash('pass123456', 10);
 
     const collectorInclude = {
       user: {
@@ -148,17 +148,26 @@ export class CollectorService {
   async getProfile(collectorId: number) {
     const collector = await this.prisma.collector.findUnique({
       where: { id: collectorId },
-      include: {
+      select: {
+        id: true,
+        employeeCode: true,
+        workingHours: true,
+        // trustScore: true,
+        // earnings: true,
         user: {
           select: {
             fullName: true,
             email: true,
             phone: true,
             avatar: true,
-            balance: true,
+            // balance: true,
           },
         },
-        status: true,
+        status: {
+          select: {
+            availability: true,
+          },
+        },
         enterprise: {
           select: {
             name: true,
@@ -169,7 +178,11 @@ export class CollectorService {
 
     if (!collector) return errorResponse(404, 'Collector not found');
 
-    return successResponse(200, collector, 'Get profile successfully');
+    return successResponse(
+      200,
+      collector,
+      'Get profile successfully',
+    );
   }
 
   async getAcceptedReports(collectorId: number) {
@@ -239,5 +252,231 @@ export class CollectorService {
       enterprises,
       'Get accepted enterprises successfully',
     );
+  }
+
+  async getReportHistory(collectorId: number, query: any) {
+    const { page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
+    const [total, history] = await Promise.all([
+      this.prisma.reportAssignment.count({
+        where: {
+          collectorId,
+          report: { status: 'COMPLETED' },
+        },
+      }),
+      this.prisma.reportAssignment.findMany({
+        where: {
+          collectorId,
+          report: { status: 'COMPLETED' },
+        },
+        skip,
+        take: +limit,
+        select: {
+          report: {
+            select: {
+              id: true,
+              address: true,
+              completedAt: true,
+              actualWeight: true,
+              wasteItems: {
+                select: {
+                  wasteType: true,
+                  weightKg: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { completedAt: 'desc' },
+      }),
+    ]);
+
+    const formattedHistory = history.map((h) => ({
+      reportId: h.report.id,
+      address: h.report.address,
+      completedAt: h.report.completedAt,
+      actualWeight: h.report.actualWeight ? Number(h.report.actualWeight) : 0,
+      wasteItems: h.report.wasteItems.map((wi) => ({
+        type: wi.wasteType,
+        weight: Number(wi.weightKg),
+      })),
+    }));
+
+    return successResponse(
+      200,
+      {
+        data: formattedHistory,
+        meta: {
+          total,
+          page: +page,
+          limit: +limit,
+        },
+      },
+      'Lấy lịch sử report thành công',
+    );
+  }
+
+  // ==================== ENTERPRISE MANAGEMENT ====================
+
+  async getCollectors(enterpriseId: number, query: any) {
+    const { status, search, page = 1, limit = 10 } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {
+      enterpriseId,
+      deletedAt: null,
+    };
+
+    if (status) {
+      where.status = { availability: status };
+    }
+
+    if (search) {
+      where.user = {
+        OR: [
+          { fullName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } },
+        ],
+      };
+    }
+
+    const [total, collectors] = await Promise.all([
+      this.prisma.collector.count({ where }),
+      this.prisma.collector.findMany({
+        where,
+        skip,
+        take: +limit,
+        select: {
+          id: true,
+          employeeCode: true,
+          user: {
+            select: {
+              fullName: true,
+              email: true,
+              phone: true,
+              avatar: true,
+            },
+          },
+          status: {
+            select: {
+              availability: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
+
+    return successResponse(
+      200,
+      {
+        data: collectors,
+        meta: {
+          total,
+          page: +page,
+          limit: +limit,
+          totalPages: Math.ceil(total / limit),
+        },
+      },
+      'Lấy danh sách collector thành công',
+    );
+  }
+
+  async getCollectorById(enterpriseId: number, id: number) {
+    const collector = await this.prisma.collector.findFirst({
+      where: { id, enterpriseId, deletedAt: null },
+      include: {
+        user: {
+          select: {
+            fullName: true,
+            email: true,
+            phone: true,
+            avatar: true,
+          },
+        },
+        status: true,
+      },
+    });
+
+    if (!collector) return errorResponse(404, 'Không tìm thấy collector');
+
+    return successResponse(200, collector, 'Lấy chi tiết collector thành công');
+  }
+
+  async updateCollector(enterpriseId: number, id: number, dto: any) {
+    const collector = await this.prisma.collector.findFirst({
+      where: { id, enterpriseId, deletedAt: null },
+    });
+
+    if (!collector) return errorResponse(404, 'Không tìm thấy collector');
+
+    const { fullName, phone, avatar } = dto;
+
+    try {
+      const updatedUser = await this.prisma.user.update({
+        where: { id: collector.userId },
+        data: {
+          ...(fullName && { fullName }),
+          ...(phone !== undefined && { phone }),
+          ...(avatar !== undefined && { avatar }),
+        },
+        select: {
+          id: true,
+          fullName: true,
+          phone: true,
+          email: true,
+          avatar: true,
+        },
+      });
+
+      return successResponse(
+        200,
+        {
+          ...collector,
+          user: updatedUser,
+        },
+        'Cập nhật thông tin cơ bản collector thành công',
+      );
+    } catch (error) {
+      this.logger.error('Failed to update collector profile', error);
+      return errorResponse(500, 'Lỗi cập nhật thông tin collector', error.message);
+    }
+  }
+
+  async deleteCollector(enterpriseId: number, id: number) {
+    const collector = await this.prisma.collector.findFirst({
+      where: { id, enterpriseId, deletedAt: null },
+    });
+
+    if (!collector) return errorResponse(404, 'Không tìm thấy collector');
+
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        // Soft delete collector
+        await tx.collector.update({
+          where: { id },
+          data: {
+            deletedAt: new Date(),
+            isActive: false,
+          },
+        });
+
+        // Soft delete user (or just mark as inactive/banned)
+        // Here we just mark account as DELETED if appropriate
+        await tx.user.update({
+          where: { id: collector.userId },
+          data: {
+            status: 'DELETED',
+            deletedAt: new Date(),
+          },
+        });
+      });
+
+      return successResponse(200, null, 'Xóa collector thành công');
+    } catch (error) {
+      this.logger.error('Failed to delete collector', error);
+      return errorResponse(500, 'Lỗi xóa collector', error.message);
+    }
   }
 }

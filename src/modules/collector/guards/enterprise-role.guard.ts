@@ -9,7 +9,7 @@ import { PrismaService } from 'src/libs/prisma/prisma.service';
 
 @Injectable()
 export class EnterpriseRoleGuard implements CanActivate {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -38,11 +38,7 @@ export class EnterpriseRoleGuard implements CanActivate {
       );
     }
 
-    if (enterprise.status !== 'ACTIVE') {
-      throw new ForbiddenException(
-        `Enterprise account is currently ${enterprise.status}`,
-      );
-    }
+
 
     // Attach to request for controller use
     request.user.enterpriseId = enterprise.id;
