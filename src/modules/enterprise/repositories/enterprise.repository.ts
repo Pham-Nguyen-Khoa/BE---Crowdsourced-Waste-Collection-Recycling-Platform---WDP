@@ -174,6 +174,38 @@ export class EnterpriseRepository {
     }
 
     /**
+     * Tìm các payments thành công theo enterprise ID (có phân trang)
+     */
+    async findSuccessfulPaymentsByEnterpriseId(enterpriseId: number, skip?: number, take?: number) {
+        return this.prisma.payment.findMany({
+            where: {
+                enterpriseId,
+                status: PaymentStatus.PAID
+            },
+            include: {
+                subscriptionPlanConfig: true
+            },
+            orderBy: {
+                paidAt: 'desc'
+            },
+            skip,
+            take
+        });
+    }
+
+    /**
+     * Đếm tổng số payments thành công của enterprise
+     */
+    async countSuccessfulPaymentsByEnterpriseId(enterpriseId: number) {
+        return this.prisma.payment.count({
+            where: {
+                enterpriseId,
+                status: PaymentStatus.PAID
+            }
+        });
+    }
+
+    /**
      * Tìm payment mới nhất theo enterprise ID
      */
     async findPaymentByEnterpriseId(enterpriseId: number) {

@@ -81,6 +81,7 @@ export const routesV1 = {
         // Subscription
         getSubscription: `${enterprise}/subscription`,
         renewSubscription: `${enterprise}/subscription/renew`,
+        getTransactionHistory: `${enterprise}/transactions`,
     },
     citizen: {
         // Report management

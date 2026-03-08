@@ -26,6 +26,9 @@ export class EnterpriseMapResponseDto {
     @ApiProperty({ description: 'Số lượng collector', example: 5 })
     collectorCount: number;
 
+    @ApiProperty({ description: 'Avatar doanh nghiệp', example: 'https://example.com/avatar.png' })
+    avatar?: string;
+
     @ApiProperty({ description: 'Số điện thoại liên hệ', example: '0901234567' })
     contactPhone?: string;
 }

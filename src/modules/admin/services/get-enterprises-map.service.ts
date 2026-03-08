@@ -27,6 +27,7 @@ export class GetEnterprisesMapService {
                     user: {
                         select: {
                             phone: true,
+                            avatar: true,
                         }
                     },
                     _count: {
@@ -44,6 +45,7 @@ export class GetEnterprisesMapService {
                 status: e.status,
                 capacityKg: Number(e.capacityKg),
                 collectorCount: e._count.collectors,
+                avatar: e.user.avatar || undefined,
                 contactPhone: e.user.phone || undefined,
             }));
 
@@ -68,25 +70,30 @@ export class GetEnterprisesMapService {
                             fullName: true,
                             email: true,
                             phone: true,
+                            avatar: true,
                         }
+                    },
+                    serviceAreas: true,
+                    wasteTypes: true,
+                    subscriptions: {
+                        where: { isActive: true },
+                        include: { subscriptionPlanConfig: true },
+                        orderBy: { endDate: 'desc' },
+                        take: 1
                     },
                     collectors: {
                         where: { deletedAt: null },
                         include: {
-                            user: {
-                                select: {
-                                    fullName: true,
-                                    phone: true,
-                                    avatar: true,
-                                }
-                            },
                             status: {
                                 select: { status: true }
                             }
                         }
                     },
                     _count: {
-                        select: { collectors: true }
+                        select: { 
+                            collectors: true,
+                            reportAssignments: true
+                        }
                     }
                 }
             });
@@ -95,30 +102,60 @@ export class GetEnterprisesMapService {
                 return errorResponse(404, 'Không tìm thấy doanh nghiệp');
             }
 
-            const collectors = enterprise.collectors.map(c => ({
-                id: c.id,
-                fullName: c.user.fullName,
-                phone: c.user.phone,
-                avatar: c.user.avatar,
-                status: c.status?.status || 'OFFLINE',
-            }));
+            // Tính toán stats collector
+            const onlineCollectors = enterprise.collectors.filter(c => 
+                c.status?.status === 'AVAILABLE' || c.status?.status === 'ON_TASK'
+            ).length;
+            
+            const offlineCollectors = enterprise.collectors.length - onlineCollectors;
+
+            const activeSub = enterprise.subscriptions[0];
 
             return successResponse(200, {
                 enterprise: {
                     id: enterprise.id,
                     name: enterprise.name,
+                    avatar: enterprise.user.avatar,
                     address: enterprise.address,
                     latitude: Number(enterprise.latitude),
                     longitude: Number(enterprise.longitude),
                     status: enterprise.status,
                     capacityKg: Number(enterprise.capacityKg),
-                    collectorCount: enterprise._count.collectors,
+                    
+                    // Thông tin liên hệ
                     contactEmail: enterprise.user.email,
                     contactPhone: enterprise.user.phone,
                     contactName: enterprise.user.fullName,
+
+                    // Hoạt động & Dịch vụ
+                    wasteTypes: enterprise.wasteTypes.map(wt => wt.wasteType),
+                    serviceAreas: enterprise.serviceAreas.map(sa => ({
+                        provinceCode: sa.provinceCode,
+                        districtCode: sa.districtCode,
+                        wardCode: sa.wardCode
+                    })),
+
+                    // Subscription hiện tại
+                    activeSubscription: activeSub ? {
+                        planName: activeSub.subscriptionPlanConfig.name,
+                        startDate: activeSub.startDate,
+                        endDate: activeSub.endDate
+                    } : null,
+
+                    // Thống kê
+                    stats: {
+                        totalCollectors: enterprise._count.collectors,
+                        onlineCollectors,
+                        offlineCollectors,
+                        totalReports: enterprise._count.reportAssignments
+                    },
+                    
+                    // Giữ lại collectorCount cho FE cũ nếu cần
+                    collectorCount: enterprise._count.collectors,
                 },
-                collectors,
-            }, 'Lấy thông tin doanh nghiệp thành công');
+                // FE đã call và gắn rồi nên giữ lại field nhưng xóa array cho nhẹ (hoặc trả rỗng như user muốn)
+                collectors: [], 
+            }, 'Lấy thông tin doanh nghiệp chi tiết thành công');
 
         } catch (error) {
             this.logger.error('Error getting enterprise detail map:', error);

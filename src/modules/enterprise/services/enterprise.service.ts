@@ -509,11 +509,21 @@ export class EnterpriseService {
                 });
             }
 
-            const pendingPayment = await this.prisma.payment.findFirst({
-                where: { enterpriseId: enterprise.id, status: 'PENDING' },
+            // Tìm payment mới nhất của doanh nghiệp (để biết họ có đang gia hạn/nâng cấp gói dở dang không)
+            const lastPayment = await this.prisma.payment.findFirst({
+                where: { enterpriseId: enterprise.id },
                 include: { subscriptionPlanConfig: true },
                 orderBy: { createdAt: 'desc' }
             });
+
+            // Chỉ coi là "đang xử lý" nếu nó không phải là PAID
+            // Và có thể là PENDING hoặc vừa mới FAILED/CANCELLED
+            const hasPendingRenewal = lastPayment && lastPayment.status !== 'PAID';
+
+            const now = new Date();
+            const expiresAt = lastPayment?.expiresAt || (lastPayment ? new Date(lastPayment.createdAt.getTime() + 30 * 60000) : null);
+            const diffMs = expiresAt ? expiresAt.getTime() - now.getTime() : -1;
+            const isPaymentExpired = !lastPayment || lastPayment.status !== 'PENDING' || diffMs <= 0;
 
             return successResponse(200, {
                 enterpriseId: enterprise.id,
@@ -537,17 +547,20 @@ export class EnterpriseService {
                         return { days, hours, minutes };
                     })(),
                 } : null,
-                pendingPayment: pendingPayment ? {
-                    referenceCode: pendingPayment.referenceCode,
-                    amount: Number(pendingPayment.amount),
-                    planName: pendingPayment.subscriptionPlanConfig.name,
-                    expiresAt: pendingPayment.expiresAt,
-                    status: pendingPayment.status,
-                    qrCode: QRGenerator.generatePaymentQR({
+                pendingPayment: hasPendingRenewal ? {
+                    referenceCode: lastPayment.referenceCode,
+                    amount: Number(lastPayment.amount),
+                    planName: lastPayment.subscriptionPlanConfig.name,
+                    subscriptionPlanConfigId: lastPayment.subscriptionPlanConfigId,
+                    expiresAt: expiresAt,
+                    status: lastPayment.status,
+                    isExpired: isPaymentExpired,
+                    remainingSeconds: Math.max(0, Math.floor(diffMs / 1000)),
+                    qrCode: isPaymentExpired ? null : QRGenerator.generatePaymentQR({
                         bankCode: '970422',
                         accountNumber: '0001674486670',
-                        amount: Number(pendingPayment.amount),
-                        transferContent: `Thanh toan ${pendingPayment.referenceCode}`,
+                        amount: Number(lastPayment.amount),
+                        transferContent: `Thanh toan ${lastPayment.referenceCode}`,
                         accountHolder: 'PHAM NGUYEN KHOA',
                         template: '5HiNLUp'
                     })
@@ -641,6 +654,56 @@ export class EnterpriseService {
         } catch (error) {
             console.error('Error in renewSubscription:', error);
             return errorResponse(500, 'Lỗi gia hạn gói dịch vụ', 'RENEW_FAILED');
+        }
+    }
+
+    /**
+     * Lấy lịch sử giao dịch (thành công) của doanh nghiệp
+     */
+    async getTransactionHistory(userId: number, page?: number, limit?: number) {
+        try {
+            const enterprise = await this.prisma.enterprise.findFirst({
+                where: { userId, deletedAt: null },
+                select: { id: true }
+            });
+
+            if (!enterprise) {
+                return errorResponse(404, 'Không tìm thấy doanh nghiệp', 'ENTERPRISE_NOT_FOUND');
+            }
+
+            const skip = (page && limit) ? (page - 1) * limit : undefined;
+            const take = limit || undefined;
+
+            const [transactions, total] = await Promise.all([
+                this.enterpriseRepository.findSuccessfulPaymentsByEnterpriseId(enterprise.id, skip, take),
+                this.enterpriseRepository.countSuccessfulPaymentsByEnterpriseId(enterprise.id)
+            ]);
+
+            const formattedTransactions = transactions.map(t => ({
+                id: t.id,
+                referenceCode: t.referenceCode,
+                amount: Number(t.amount),
+                currency: t.currency,
+                description: t.description,
+                planName: t.subscriptionPlanConfig.name,
+                paidAt: t.paidAt,
+                method: t.method,
+                status: t.status
+            }));
+
+            return successResponse(200, {
+                transactions: formattedTransactions,
+                pagination: {
+                    total,
+                    page: page || 1,
+                    limit: limit || total,
+                    totalPages: limit ? Math.ceil(total / limit) : 1
+                }
+            }, 'Lấy lịch sử giao dịch thành công');
+
+        } catch (error) {
+            console.error('Error in getTransactionHistory:', error);
+            return errorResponse(500, 'Lỗi lấy lịch sử giao dịch', 'GET_TRANSACTIONS_FAILED');
         }
     }
 }

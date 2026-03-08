@@ -1,5 +1,5 @@
-import { Body, Controller, Get, Post, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiProperty, ApiTags } from "@nestjs/swagger";
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiQuery, ApiTags } from "@nestjs/swagger";
 import { routesV1 } from "src/configs/app.routes";
 import { JWTGuard } from "src/modules/auth/guards/jwt.guard";
 import { GetUser } from "src/modules/auth/guards/get-user.decorator";
@@ -39,5 +39,27 @@ export class SubscriptionController {
         @Body() dto: RenewSubscriptionDto
     ) {
         return this.enterpriseService.renewSubscription(user.id, dto.subscriptionPlanConfigId);
+    }
+
+
+
+
+    @ApiOperation({ summary: 'Lấy lịch sử giao dịch' })
+    @ApiBearerAuth()
+    @UseGuards(JWTGuard, RolesGuard)
+    @Roles(2)
+    @Get(routesV1.enterprise.getTransactionHistory)
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Số trang' })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Số lượng bản ghi mỗi trang' })
+    async getTransactionHistory(
+        @GetUser() user: User,
+        @Query('page') page?: number,
+        @Query('limit') limit?: number
+    ) {
+        return await this.enterpriseService.getTransactionHistory(
+            user.id,
+            page ? Number(page) : undefined,
+            limit ? Number(limit) : undefined
+        );
     }
 }
