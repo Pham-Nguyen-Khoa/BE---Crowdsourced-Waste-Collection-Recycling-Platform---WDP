@@ -62,12 +62,13 @@ export class GiftAdminService {
             email: true,
             phone: true,
             avatar: true,
+
           },
         },
         gift: true,
       },
       orderBy: { createdAt: 'desc' },
     });
-    return successResponse(200, transactions, 'Lấy lịch sử đổi quà thành công');
+    return successResponse(200, transactions, 'Lấy lịch sử đổi quà thành công.');
   }
 }
