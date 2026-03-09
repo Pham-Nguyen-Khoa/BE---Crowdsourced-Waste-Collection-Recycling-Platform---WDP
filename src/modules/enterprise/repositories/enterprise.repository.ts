@@ -98,7 +98,7 @@ export class EnterpriseRepository {
     async createEnterpriseWasteTypes(enterpriseId: number, wasteTypes: any[]) {
         return this.prisma.enterpriseWasteType.createMany({
             data: wasteTypes.map(wt => ({
-enterpriseId,
+                enterpriseId,
                 wasteType: wt
             }))
         });
@@ -203,6 +203,7 @@ enterpriseId,
         });
 
         if (!enterprise) return [];
+        console.log(enterprise.id)
 
         return this.prisma.reportAssignment.findMany({
             where: {
@@ -245,7 +246,7 @@ enterpriseId,
      * Đếm tổng số payments thành công của enterprise
      */
     async countSuccessfulPaymentsByEnterpriseId(enterpriseId: number) {
-return this.prisma.payment.count({
+        return this.prisma.payment.count({
             where: {
                 enterpriseId,
                 status: PaymentStatus.PAID
@@ -347,7 +348,7 @@ return this.prisma.payment.count({
                     user: true
                 }
             });
-if (!payment || payment.status !== PaymentStatus.PENDING) {
+            if (!payment || payment.status !== PaymentStatus.PENDING) {
                 throw new Error('Invalid payment');
             }
 
@@ -434,7 +435,7 @@ if (!payment || payment.status !== PaymentStatus.PENDING) {
             await tx.user.update({
                 where: { id: payment.userId },
                 data: {
-roleId: enterpriseRole.id
+                    roleId: enterpriseRole.id
                 }
             });
 
@@ -549,7 +550,7 @@ roleId: enterpriseRole.id
             paidPayments
         ] = await Promise.all([
             this.prisma.enterprise.count(),
-this.prisma.enterprise.count({ where: { status: EnterpriseStatus.PENDING } }),
+            this.prisma.enterprise.count({ where: { status: EnterpriseStatus.PENDING } }),
             this.prisma.enterprise.count({ where: { status: EnterpriseStatus.ACTIVE } }),
             this.prisma.payment.count(),
             this.prisma.payment.count({ where: { status: PaymentStatus.PENDING } }),

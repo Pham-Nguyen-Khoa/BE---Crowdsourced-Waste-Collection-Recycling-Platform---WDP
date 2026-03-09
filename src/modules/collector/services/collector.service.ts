@@ -200,6 +200,7 @@ export class CollectorService {
               select: {
                 fullName: true,
                 phone: true,
+                avatar: true
               },
             },
           },

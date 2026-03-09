@@ -14,7 +14,7 @@ export class AttemptTimeoutScheduler {
     private readonly dispatchService: DispatchService,
     private readonly activityService: CollectorActivityService,
     private readonly queueService: CollectorQueueService,
-  ) {}
+  ) { }
 
   @Cron('*/2 * * * *')
   async handleTimeoutAttempts() {
@@ -149,7 +149,7 @@ export class AttemptTimeoutScheduler {
       },
     });
 
-    const EXPIRED_PENALTY = 5;
+    const EXPIRED_PENALTY = 15;
     const MAX_CONSECUTIVE_SKIPS = 3;
 
     for (const attempt of expiredAttempts) {

@@ -61,6 +61,7 @@ export class GiftAdminService {
             fullName: true,
             email: true,
             phone: true,
+            avatar: true,
           },
         },
         gift: true,

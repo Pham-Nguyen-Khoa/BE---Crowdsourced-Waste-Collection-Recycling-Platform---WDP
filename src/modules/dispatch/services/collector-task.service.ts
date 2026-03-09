@@ -43,6 +43,15 @@ export class CollectorTaskService {
           include: {
             wasteItems: true,
             images: true,
+            citizen: {
+              select: {
+                id: true,
+                fullName: true,
+                phone: true,
+                email: true,
+                avatar: true
+              },
+            },
           },
         },
       },

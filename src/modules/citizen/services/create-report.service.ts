@@ -16,13 +16,13 @@ export class CreateReportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   async createReport(
     data: CreateReportMultipartDto,
     citizenId: number,
     files?: Express.Multer.File[],
-  ): Promise<CreateReportResponseDto> {
+  ) {
     let uploadedImageUrls: string[] = [];
     if (files && files.length > 0) {
       uploadedImageUrls = await this.supabaseService.uploadImages(
@@ -70,11 +70,11 @@ export class CreateReportService {
       ` Tạo báo cáo ${result.id} với trạng thái PENDING - chờ cron xử lý`,
     );
 
-    return {
+    return successResponse(200, {
       reportId: result.id,
       status: result.status,
       createdAt: result.createdAt,
-    };
+    }, 'Tạo báo cáo thành công');
   }
 
   /**

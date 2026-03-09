@@ -12,7 +12,7 @@ export class UpdateCollectorStatusService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly geoService: GeoService,
-  ) {}
+  ) { }
 
   async updateStatus(collectorId: number, dto: UpdateStatusDto) {
     try {
@@ -28,7 +28,7 @@ export class UpdateCollectorStatusService {
       });
 
       if (!collector) {
-        return errorResponse(404, 'Collector not found');
+        return errorResponse(400, 'Collector not found');
       }
 
       // 2. Check Working Hours when going ONLINE
@@ -106,7 +106,7 @@ export class UpdateCollectorStatusService {
               ? { lat: result.currentLatitude, lng: result.currentLongitude }
               : null,
         },
-        `Trạng thái làm việc: ${dto.availability}`,
+        `Bật trạng thái làm việc thành công`,
       );
     } catch (error) {
       this.logger.error(
@@ -114,9 +114,9 @@ export class UpdateCollectorStatusService {
         error,
       );
       return errorResponse(
-        500,
-        'Lỗi cập nhật trạng thái làm việc',
+        400,
         error.message,
+
       );
     }
   }
