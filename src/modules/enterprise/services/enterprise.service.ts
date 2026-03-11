@@ -662,9 +662,7 @@ export class EnterpriseService {
         }
     }
 
-    /**
-     * Lấy danh sách các báo cáo đã được doanh nghiệp chấp nhận
-     */
+
     async getAcceptedReports(userId: number) {
         try {
             const assignments = await this.enterpriseRepository.findAcceptedReportsByUserId(userId);
