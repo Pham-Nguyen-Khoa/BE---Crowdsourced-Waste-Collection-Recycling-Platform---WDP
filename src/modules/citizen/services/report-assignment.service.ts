@@ -60,6 +60,17 @@ export class ReportAssignmentService {
           data: { status: 'EXPIRED', respondedAt: new Date() },
         });
 
+        // Create ReportAssignment so it appears in the Enterprise's "Accepted" tab
+        // since it is now being processed by this Enterprise (waiting for a Collector).
+        await tx.reportAssignment.create({
+          data: {
+            reportId,
+            enterpriseId,
+            collectorId: null,
+            assignedAt: new Date(),
+          },
+        });
+
         return { success: true };
       });
 

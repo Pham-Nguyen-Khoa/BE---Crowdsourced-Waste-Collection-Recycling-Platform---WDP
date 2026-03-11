@@ -447,8 +447,12 @@ export class EnterpriseService {
             where: {
                 enterpriseId,
                 status: {
-                    // in: ['WAITING', 'ACCEPTED', 'CANCELLED', 'EXPIRED']
                     in: ['WAITING', 'CANCELLED', 'EXPIRED']
+                },
+                report: {
+                    status: {
+                        in: ['PENDING', 'CANCELLED']
+                    }
                 }
             },
             include: {
@@ -664,7 +668,6 @@ export class EnterpriseService {
     async getAcceptedReports(userId: number) {
         try {
             const assignments = await this.enterpriseRepository.findAcceptedReportsByUserId(userId);
-            console.log(assignments);
 
             const formattedReports = assignments.map(a => ({
                 id: a.report.id,

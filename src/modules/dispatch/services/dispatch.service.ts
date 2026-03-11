@@ -15,7 +15,7 @@ export class DispatchService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async dispatchToCollector(reportId: number, enterpriseId: number) {
     this.logger.log(
@@ -38,6 +38,9 @@ export class DispatchService {
         enterpriseId,
         isActive: true,
         deletedAt: null,
+        user: {
+          status: "ACTIVE"
+        },
         status: {
           availability: {
             in: [
@@ -76,12 +79,12 @@ export class DispatchService {
         const distance =
           c.status?.currentLatitude && c.status?.currentLongitude
             ? geolib.getDistance(
-                {
-                  latitude: c.status.currentLatitude,
-                  longitude: c.status.currentLongitude,
-                },
-                { latitude: report.latitude, longitude: report.longitude },
-              )
+              {
+                latitude: c.status.currentLatitude,
+                longitude: c.status.currentLongitude,
+              },
+              { latitude: report.latitude, longitude: report.longitude },
+            )
             : 999999;
 
         return { ...c, distance };
@@ -229,6 +232,11 @@ export class DispatchService {
             status: 'PENDING',
             currentEnterpriseId: null,
           },
+        });
+
+        // Remove the report from this Enterprise's "Accepted" tab
+        await tx.reportAssignment.deleteMany({
+          where: { reportId, enterpriseId }
         });
       });
 

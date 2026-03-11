@@ -116,9 +116,14 @@ export class CollectorTaskService {
         return errorResponse(400, 'Báo cáo không khả dụng để tiếp nhận');
       }
 
-      // 3. Create ReportAssignment record
-      await tx.reportAssignment.create({
-        data: {
+      // 3. Update or Create ReportAssignment record
+      await tx.reportAssignment.upsert({
+        where: { reportId: attempt.reportId },
+        update: {
+          collectorId: collectorId,
+          assignedAt: new Date(),
+        },
+        create: {
           reportId: attempt.reportId,
           enterpriseId: attempt.enterpriseId,
           collectorId: collectorId,

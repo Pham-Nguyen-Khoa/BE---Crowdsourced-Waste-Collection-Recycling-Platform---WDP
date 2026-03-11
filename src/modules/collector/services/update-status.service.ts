@@ -23,12 +23,16 @@ export class UpdateCollectorStatusService {
           id: true,
           employeeCode: true,
           workingHours: true,
-          user: { select: { fullName: true } },
+          user: { select: { fullName: true, status: true, deletedAt: true } },
         },
       });
 
       if (!collector) {
         return errorResponse(400, 'Collector not found');
+      }
+
+      if (collector.user.status !== 'ACTIVE' || collector.user.deletedAt) {
+        return errorResponse(400, 'Tài khoản của bạn đã bị khóa hoặc xóa. Không thể thay đổi trạng thái.');
       }
 
       // 2. Check Working Hours when going ONLINE
