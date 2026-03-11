@@ -1,10 +1,10 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Post, Get, Body, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { LoyaltyService } from '../services/loyalty.service';
 import { RedeemGiftDto } from '../dtos/redeem-gift.dto';
 import { JWTGuard } from '../../auth/guards/jwt.guard';
 import { GetUser } from '../../auth/guards/get-user.decorator';
-import { User } from '@prisma/client';
+import { User, PointTransactionType } from '@prisma/client';
 import { routesV1 } from '../../../configs/app.routes';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/guards/roles.decorator';
@@ -30,9 +30,13 @@ export class LoyaltyController {
   }
 
   @Get(routesV1.citizen.getMyRedemptions)
-  @ApiOperation({ summary: 'Xem lịch sử đổi quà của tôi' })
-  async getMyRedemptions(@GetUser() user: User) {
-    return await this.loyaltyService.getMyRedemptions(user.id);
+  @ApiOperation({ summary: 'Xem lịch sử điểm thưởng của tôi (Cộng điểm/Đổi quà)' })
+  @ApiQuery({ name: 'type', required: false, enum: PointTransactionType })
+  async getMyRedemptions(
+    @GetUser() user: User,
+    @Query('type') type?: PointTransactionType
+  ) {
+    return await this.loyaltyService.getMyRedemptions(user.id, type);
   }
 
   @Get(routesV1.citizen.getMyPoints)

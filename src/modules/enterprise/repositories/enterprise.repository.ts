@@ -223,6 +223,28 @@ export class EnterpriseRepository {
                                 phone: true,
                             },
                         },
+                        collectorTaskAttempts: {
+                            where: {
+                                status: 'PENDING_COLLECTOR'
+                            },
+                            orderBy: {
+                                createdAt: 'desc'
+                            },
+                            take: 1,
+                            include: {
+                                collector: {
+                                    include: {
+                                        user: {
+                                            select: {
+                                                fullName: true,
+                                                phone: true,
+                                                avatar: true
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     },
                 },
                 collector: {

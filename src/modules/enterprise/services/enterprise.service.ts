@@ -688,10 +688,18 @@ export class EnterpriseService {
                 },
                 collector: a.collector ? {
                     id: a.collector.id,
+                    employeeCode: a.collector.employeeCode,
                     fullName: a.collector.user.fullName,
                     phone: a.collector.user.phone,
                     avatar: a.collector.user.avatar
-                } : null
+                } : ((a.report as any).collectorTaskAttempts?.length > 0 ? {
+                    id: (a.report as any).collectorTaskAttempts[0].collector.id,
+                    employeeCode: (a.report as any).collectorTaskAttempts[0].collector.employeeCode,
+                    fullName: (a.report as any).collectorTaskAttempts[0].collector.user.fullName,
+                    email: (a.report as any).collectorTaskAttempts[0].collector.user.email,
+                    phone: (a.report as any).collectorTaskAttempts[0].collector.user.phone,
+                    avatar: (a.report as any).collectorTaskAttempts[0].collector.user.avatar
+                } : null)
             }));
 
             return successResponse(200, formattedReports, 'Lấy danh sách báo cáo đã chấp nhận thành công');

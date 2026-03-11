@@ -101,16 +101,18 @@ export class LoyaltyService {
     });
   }
 
-  async getMyRedemptions(citizenId: number) {
+  async getMyRedemptions(citizenId: number, type?: PointTransactionType) {
+    const where: any = { userId: citizenId };
+    if (type) {
+      where.type = type;
+    }
+
     const transactions = await this.prisma.pointTransaction.findMany({
-      where: {
-        userId: citizenId,
-        giftId: { not: null }
-      },
+      where,
       include: { gift: true },
       orderBy: { createdAt: 'desc' },
     });
-    return successResponse(200, transactions, 'Lấy lịch sử đổi quà thành công');
+    return successResponse(200, transactions, 'Lấy lịch sử giao dịch điểm thành công');
   }
 
   async getMyPoints(citizenId: number) {

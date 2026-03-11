@@ -20,81 +20,124 @@ export class ReportAssignmentService {
   async enterpriseAccept(reportId: number, userId: number) {
     const enterprise = await this.prisma.enterprise.findFirst({
       where: { userId },
-      select: { id: true, name: true },
-    });
+      select: { id: true, name: true }
+    })
 
     if (!enterprise) {
-      return errorResponse(400, 'Ban khong co quyen tuy chon doanh nghiep');
+      return errorResponse(400, 'Ban khong co quyen tuy chon doanh nghiep')
     }
 
-    const enterpriseId = enterprise.id;
+    const enterpriseId = enterprise.id
 
-    try {
-      const result = await this.prisma.$transaction(async (tx) => {
-        // 1. Atomic Update status PENDING -> ENTERPRISE_RESERVED
-        const reportUpdate = await tx.report.updateMany({
-          where: { id: reportId, status: 'PENDING' },
-          data: {
-            status: 'ENTERPRISE_RESERVED',
-            currentEnterpriseId: enterpriseId,
-          },
-        });
+    const attempt = await this.prisma.reportEnterpriseAttempt.findUnique({
+      where: {
+        reportId_enterpriseId: { reportId, enterpriseId }
+      }
+    })
 
-        if (reportUpdate.count === 0) {
-          const check = await tx.report.findUnique({ where: { id: reportId } });
-          if (!check) throw new Error('Báo cáo không tồn tại');
-          throw new Error(
-            `Báo cáo đang ở trạng thái "${check.status}", không thể chấp nhận`,
-          );
+    if (!attempt || attempt.status !== 'WAITING') {
+      return errorResponse(400, 'Ban khong co quyen tuy chon doanh nghiep')
+    }
+
+    // Lấy thông tin báo cáo và chủ sở hữu (citizen)
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      select: {
+        citizenId: true,
+        deletedAt: true,
+        status: true
+      }
+    });
+
+    if (!report) {
+      return errorResponse(400, 'Báo cáo không tồn tại')
+    }
+
+    // ✅ KIỂM TRA: Report đã bị hủy chưa
+    if (report.deletedAt) {
+      return errorResponse(400, 'Báo cáo đã bị hủy bởi citizen', 'REPORT_CANCELLED')
+    }
+
+    // ✅ KIỂM TRA: Report còn ở trạng thái PENDING không
+    if (report.status !== 'PENDING') {
+      return errorResponse(400, `Báo cáo đang ở trạng thái "${report.status}", không thể chấp nhận`, 'INVALID_STATUS')
+    }
+
+    await this.prisma.reportEnterpriseAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        status: 'ACCEPTED',
+        respondedAt: new Date()
+      }
+    })
+
+    await this.prisma.report.update({
+      where: { id: reportId },
+      data: {
+        status: 'ACCEPTED',
+        currentEnterpriseId: enterpriseId
+      }
+    })
+
+    await this.prisma.reportAssignment.create({
+      data: {
+        reportId,
+        enterpriseId,
+        collectorId: null
+      }
+    })
+
+    await this.prisma.reportEnterpriseAttempt.updateMany({
+      where: {
+        reportId,
+        id: { not: attempt.id },
+        status: 'WAITING'
+      },
+      data: {
+        status: 'EXPIRED',
+        respondedAt: new Date()
+      }
+    })
+
+    if (report.citizenId) {
+      const notification = await this.prisma.notification.create({
+        data: {
+          userId: report.citizenId,
+          type: NotificationType.REPORT_STATUS_CHANGED,
+          title: 'Báo cáo đã được tiếp nhận',
+          content: 'Báo cáo của bạn đã được tiếp nhận và sẽ sớm được xử lý.',
+          meta: { reportId, action: 'ACCEPTED' }
         }
+      })
+      // Gửi qua socket
+      this.notificationGateway.notifyUser(report.citizenId, {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        content: notification.content,
+        meta: notification.meta,
+        createdAt: notification.createdAt
+      })
 
-        // 2. Mark attempt as ACCEPTED
-        await tx.reportEnterpriseAttempt.updateMany({
-          where: { reportId, enterpriseId, status: 'WAITING' },
-          data: { status: 'ACCEPTED', respondedAt: new Date() },
-        });
-
-        // 3. Mark other attempts as EXPIRED
-        await tx.reportEnterpriseAttempt.updateMany({
-          where: { reportId, status: 'WAITING' },
-          data: { status: 'EXPIRED', respondedAt: new Date() },
-        });
-
-        // Create ReportAssignment so it appears in the Enterprise's "Accepted" tab
-        // since it is now being processed by this Enterprise (waiting for a Collector).
-        await tx.reportAssignment.create({
-          data: {
-            reportId,
-            enterpriseId,
-            collectorId: null,
-            assignedAt: new Date(),
-          },
-        });
-
-        return { success: true };
-      });
-
-      // 4. Trigger auto-dispatch (Background)
-      setTimeout(() => {
-        this.dispatchService
-          .dispatchToCollector(reportId, enterpriseId)
-          .then((res) => {
-            if (!res)
-              this.logger.warn(
-                `No collector found for auto-dispatch of report ${reportId}`,
-              );
-          });
-      }, 500);
-
-      return successResponse(
-        200,
-        null,
-        'Đã đặt chỗ báo cáo. Hệ thống đang tìm người thu gom phù hợp.',
-      );
-    } catch (error) {
-      this.logger.error('Error in enterpriseAccept:', error);
-      return errorResponse(400, error.message || 'Lỗi xử lý đặt chỗ báo cáo');
+      this.logger.log(`📬 Đã gửi notification cho citizen ${report.citizenId}`)
     }
+
+    // Gọi logic điều phối tài xế ở dạng chạy ngầm
+    setTimeout(() => {
+      this.dispatchService
+        .dispatchToCollector(reportId, enterpriseId)
+        .then((res) => {
+          if (!res) {
+            this.logger.warn(
+              `No collector found for auto-dispatch of report ${reportId}`,
+            );
+          }
+        });
+    }, 500);
+
+    this.logger.log(`✅ Doanh nghiệp ${enterpriseId} đã chấp nhận báo cáo ${reportId}`)
+    return successResponse(200, null, 'Doanh nghiep da chap nhan bao cao rac nay')
+
   }
 
   async enterpriseReject(reportId: number, userId: number) {
