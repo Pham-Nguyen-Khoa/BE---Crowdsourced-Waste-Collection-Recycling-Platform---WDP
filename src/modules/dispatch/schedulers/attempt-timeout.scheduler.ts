@@ -137,7 +137,7 @@ export class AttemptTimeoutScheduler {
   // }
 
   /**
-   * Thu hồi các task mà Collector không xác nhận sau 5 phút
+   * Thu hồi các task mà Collector không xác nhận sau 30 phút
    */
   private async processPendingCollectorTimeouts() {
     this.logger.log('Scanning for expired PENDING_COLLECTOR attempts...');

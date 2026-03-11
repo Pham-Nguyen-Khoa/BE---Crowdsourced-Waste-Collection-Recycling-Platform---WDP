@@ -138,7 +138,7 @@ export class DispatchService {
               enterpriseId,
               attemptOrder: attemptCount + 1,
               status: 'PENDING_COLLECTOR',
-              expiredAt: new Date(Date.now() + 5 * 60 * 1000), // 5 minutes
+              expiredAt: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
             },
           });
 
@@ -161,7 +161,7 @@ export class DispatchService {
           await this.notificationService.createAndNotify({
             userId: candidate.userId,
             title: 'Nhiệm vụ thu gom mới',
-            content: `Bạn có 5 phút để xác nhận nhiệm vụ thu gom mới (Report #${reportId})`,
+            content: `Bạn có 30 phút để xác nhận nhiệm vụ thu gom mới (Report #${reportId})`,
             type: 'SYSTEM',
             meta: { reportId, attemptId: result.id, type: 'NEW_TASK' },
           });
