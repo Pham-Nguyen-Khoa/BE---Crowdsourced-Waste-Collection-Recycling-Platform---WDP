@@ -35,6 +35,8 @@ jobs:
             prisma
             package.json
             package-lock.json
+            tsconfig.json
+            tsconfig.build.json
 
   deploy:
     runs-on: ubuntu-latest
