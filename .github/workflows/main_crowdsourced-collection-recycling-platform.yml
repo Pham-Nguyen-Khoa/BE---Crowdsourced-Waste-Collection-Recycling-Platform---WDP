@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -31,7 +35,6 @@ jobs:
             dist
             package.json
             package-lock.json
-            node_modules
 
   deploy:
     runs-on: ubuntu-latest
