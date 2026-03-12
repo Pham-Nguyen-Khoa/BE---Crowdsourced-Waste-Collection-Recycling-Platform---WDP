@@ -33,8 +33,10 @@ jobs:
           name: app
           path: |
             dist
+            prisma
             package.json
             package-lock.json
+            node_modules
 
   deploy:
     runs-on: ubuntu-latest
