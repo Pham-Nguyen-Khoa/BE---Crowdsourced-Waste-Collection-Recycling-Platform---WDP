@@ -364,6 +364,8 @@ export class EnterpriseService {
                 name: enterprise.name,
                 address: enterprise.address,
                 capacityKg: Number(enterprise.capacityKg),
+                latitude: enterprise.latitude,
+                longitude: enterprise.longitude,
                 status: enterprise.status,
                 serviceAreas: enterprise.serviceAreas,
                 wasteTypes: enterprise.wasteTypes,

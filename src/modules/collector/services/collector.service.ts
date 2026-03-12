@@ -94,7 +94,7 @@ export class CollectorService {
               enterpriseId,
               employeeCode,
               workingHours: dto.workingHours,
-              trustScore: 100,
+              trustScore: 0,
               isActive: true,
               deletedAt: null,
             },

@@ -465,38 +465,29 @@ export class CollectorTaskService {
       return errorResponse(400, 'Trạng thái nhiệm vụ không hợp lệ');
     }
 
-    // 2. Validate weight inputs vs report wasteItems
-    const reportWasteTypes = assignment.report.wasteItems.map((w) => w.wasteType);
-
+    // 2. Lấy cân nặng thực tế từ Collector nhập vào (không phụ thuộc hoàn toàn vào report gốc)
     const weightMap: Record<string, number | null | undefined> = {
       ORGANIC: dto.weightOrganic,
       RECYCLABLE: dto.weightRecyclable,
       HAZARDOUS: dto.weightHazardous,
     };
 
-    // Các loại rác có trong report phải được truyền weight
-    const missingTypes: string[] = [];
-    for (const wasteType of reportWasteTypes) {
-      const w = weightMap[wasteType];
-      if (w === undefined || w === null) {
-        missingTypes.push(wasteType);
+    let totalActualWeight = 0;
+    const perTypeWeights: { wasteType: string; weight: number }[] = [];
+
+    for (const [wasteType, weight] of Object.entries(weightMap)) {
+      if (weight !== undefined && weight !== null && weight > 0) {
+        const w = Number(weight);
+        totalActualWeight += w;
+        perTypeWeights.push({ wasteType, weight: w });
       }
     }
 
-    if (missingTypes.length > 0) {
+    if (perTypeWeights.length === 0) {
       return errorResponse(
         400,
-        `Thiếu cân nặng cho loại rác: ${missingTypes.join(', ')}. Report có các loại: ${reportWasteTypes.join(', ')}.`,
+        'Bạn phải nhập cân nặng cho ít nhất một loại rác (> 0kg)',
       );
-    }
-
-    // Tính actualWeight tổng và danh sách chi tiết
-    let totalActualWeight = 0;
-    const perTypeWeights: { wasteType: string; weight: number }[] = [];
-    for (const wasteType of reportWasteTypes) {
-      const w = Number(weightMap[wasteType]);
-      totalActualWeight += w;
-      perTypeWeights.push({ wasteType, weight: w });
     }
 
     // 3. Upload images if any
