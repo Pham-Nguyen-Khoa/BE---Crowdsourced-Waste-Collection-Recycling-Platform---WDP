@@ -11,7 +11,7 @@ export class RewardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   /**
    * GIAI ĐOẠN 4: Settlement tài chính
@@ -119,7 +119,7 @@ export class RewardService {
         // Reset consecutiveSkipCount khi hoàn thành task (họ đang thực sự làm việc)
         await tx.collectorStatus.update({
           where: { collectorId: payload.collectorId },
-          data: { consecutiveSkipCount: 0 } as any,
+          data: { available: "ONLINE_AVAILABLE" } as any,
         });
 
         // ──────────────────────────────────────────────
@@ -143,8 +143,8 @@ export class RewardService {
 
         this.logger.log(
           `Successfully completed reward settlement for report ${payload.reportId}. ` +
-            `Citizen reward: ${finalReward} pts. Collector earnings: ${collectorEarnings}đ. ` +
-            `Collector trustScore: +${SUCCESS_TRUST_SCORE}`,
+          `Citizen reward: ${finalReward} pts. Collector earnings: ${collectorEarnings}đ. ` +
+          `Collector trustScore: +${SUCCESS_TRUST_SCORE}`,
         );
 
         // 8. [NON-BLOCKING] Notify Citizen về điểm thưởng (sau khi tx commit)
