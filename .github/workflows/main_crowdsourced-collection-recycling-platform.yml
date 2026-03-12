@@ -1,4 +1,4 @@
-name: Build and deploy Node.js app to Azure Web App
+name: Deploy NestJS to Azure
 
 on:
   push:
@@ -16,16 +16,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install dependencies
-        run: npm install
+      - run: npm install
 
-      - name: Build project
-        run: npm run build
+      - run: npx prisma generate
+
+      - run: npm run build
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -49,9 +48,9 @@ jobs:
 
       - uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_26526A137BB74C28BD0C0F803D7023A2 }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_B5D67C0D36874C129969E9AD8DCBEB6B }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_A0327FE8B16244FFA56D281F9A960C78 }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID }}
 
       - uses: azure/webapps-deploy@v3
         with:
