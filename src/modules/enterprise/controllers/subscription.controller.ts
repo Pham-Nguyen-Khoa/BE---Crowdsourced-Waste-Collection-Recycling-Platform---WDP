@@ -32,7 +32,7 @@ export class SubscriptionController {
     @ApiOperation({ summary: 'Gia hạn gói dịch vụ (khi EXPIRED hoặc sắp hết hạn)' })
     @ApiBearerAuth()
     @UseGuards(JWTGuard, RolesGuard)
-    @Roles(2)
+    @Roles(1, 2)
     @Post(routesV1.enterprise.renewSubscription)
     async renewSubscription(
         @GetUser() user: User,

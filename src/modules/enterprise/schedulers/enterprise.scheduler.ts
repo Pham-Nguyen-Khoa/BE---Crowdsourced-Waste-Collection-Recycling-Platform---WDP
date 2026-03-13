@@ -8,7 +8,7 @@ export class EnterpriseScheduler {
 
   constructor(private readonly enterpriseRepository: EnterpriseRepository) { }
 
-  @Cron(CronExpression.EVERY_30_MINUTES)
+  @Cron(CronExpression.EVERY_MINUTE)
   async handleExpiredPayments() {
     try {
       const expiredPayments =
