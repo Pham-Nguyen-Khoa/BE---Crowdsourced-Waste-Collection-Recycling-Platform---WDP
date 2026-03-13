@@ -203,7 +203,6 @@ export class EnterpriseRepository {
         });
 
         if (!enterprise) return [];
-        console.log(enterprise.id)
 
         return this.prisma.reportAssignment.findMany({
             where: {
@@ -216,6 +215,7 @@ export class EnterpriseRepository {
                 report: {
                     include: {
                         wasteItems: true,
+                        actualWasteItems: true,
                         images: true,
                         citizen: {
                             select: {

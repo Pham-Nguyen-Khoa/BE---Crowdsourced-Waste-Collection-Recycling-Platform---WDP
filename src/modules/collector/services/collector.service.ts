@@ -94,7 +94,7 @@ export class CollectorService {
               enterpriseId,
               employeeCode,
               workingHours: dto.workingHours,
-              trustScore: 0,
+              trustScore: 100,
               isActive: true,
               deletedAt: null,
             },
@@ -280,7 +280,14 @@ export class CollectorService {
               address: true,
               completedAt: true,
               actualWeight: true,
+              accuracyBucket: true,
               wasteItems: {
+                select: {
+                  wasteType: true,
+                  weightKg: true,
+                },
+              },
+              actualWasteItems: {
                 select: {
                   wasteType: true,
                   weightKg: true,
@@ -298,10 +305,17 @@ export class CollectorService {
       address: h.report.address,
       completedAt: h.report.completedAt,
       actualWeight: h.report.actualWeight ? Number(h.report.actualWeight) : 0,
+      accuracyBucket: h.report.accuracyBucket,
       wasteItems: h.report.wasteItems.map((wi) => ({
         type: wi.wasteType,
         weight: Number(wi.weightKg),
       })),
+      actualWasteItems: h.report.actualWasteItems.length > 0
+        ? h.report.actualWasteItems.map((wi) => ({
+            type: wi.wasteType,
+            weight: Number(wi.weightKg),
+          }))
+        : null,
     }));
 
     return successResponse(

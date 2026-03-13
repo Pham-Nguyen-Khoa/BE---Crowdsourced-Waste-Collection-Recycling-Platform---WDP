@@ -6,6 +6,455 @@ datasource db {
   provider = "postgresql"
 }
 
+model Role {
+  id          Int              @id @default(autoincrement())
+  name        UserRole         @unique
+  permissions RolePermission[]
+  users       User[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  isActive     Boolean    @default(true)
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         Role       @relation(fields: [roleId], references: [id])
+
+  @@id([roleId, permissionId])
+}
+
+model User {
+  id                Int                @id @default(autoincrement())
+  email             String             @unique @db.VarChar(255)
+  password          String             @db.VarChar(255)
+  fullName          String             @db.VarChar(255)
+  avatar            String?            @db.VarChar(255)
+  phone             String?            @db.VarChar(20)
+  roleId            Int
+  balance           Int                @default(0)
+  status            AccountStatus      @default(ACTIVE)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?
+  collector         Collector?
+  complaints        Complaint[]
+  enterprise        Enterprise?
+  notifications     Notification[]
+  passwordResets    PasswordReset[]
+  payments          Payment[]
+  pointTransactions PointTransaction[]
+  reports           Report[]
+  role              Role               @relation(fields: [roleId], references: [id])
+
+  @@index([email])
+  @@index([phone])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model Enterprise {
+  id                       Int                       @id @default(autoincrement())
+  userId                   Int                       @unique
+  name                     String                    @db.VarChar(255)
+  status                   EnterpriseStatus          @default(ACTIVE)
+  address                  String
+  latitude                 Float
+  longitude                Float
+  capacityKg               Decimal                   @db.Decimal(10, 2)
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  deletedAt                DateTime?
+  collectors               Collector[]
+  collectorTaskAttempts    CollectorTaskAttempt[]
+  user                     User                      @relation(fields: [userId], references: [id])
+  serviceAreas             EnterpriseServiceArea[]
+  wasteTypes               EnterpriseWasteType[]
+  payments                 Payment[]
+  reportAssignments        ReportAssignment[]
+  reportEnterpriseAttempts ReportEnterpriseAttempt[]
+  subscriptions            Subscription[]
+  zones                    Zone[]
+
+  @@index([name])
+  @@index([status])
+  @@index([latitude, longitude])
+  @@index([deletedAt])
+}
+
+model EnterpriseServiceArea {
+  id           Int        @id @default(autoincrement())
+  enterpriseId Int
+  provinceCode String
+  districtCode String?
+  wardCode     String?
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([enterpriseId, provinceCode, districtCode, wardCode])
+  @@index([provinceCode, districtCode, wardCode])
+}
+
+model EnterpriseWasteType {
+  id           Int        @id @default(autoincrement())
+  enterpriseId Int
+  wasteType    WasteType
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([enterpriseId, wasteType])
+}
+
+model Payment {
+  id                       Int                    @id @default(autoincrement())
+  userId                   Int
+  enterpriseId             Int
+  subscriptionPlanConfigId Int
+  method                   PaymentMethod
+  status                   PaymentStatus          @default(PENDING)
+  amount                   Decimal                @db.Decimal(12, 2)
+  currency                 String                 @default("VND") @db.VarChar(3)
+  description              String                 @db.VarChar(255)
+  referenceCode            String                 @unique @db.VarChar(50)
+  bankTransactionId        String?                @db.VarChar(100)
+  bankAccountNumber        String?                @db.VarChar(50)
+  bankName                 String?                @db.VarChar(100)
+  notes                    String?
+  webhookId                String?                @db.VarChar(100)
+  webhookData              Json?
+  createdAt                DateTime               @default(now())
+  expiresAt                DateTime?
+  paidAt                   DateTime?
+  failedAt                 DateTime?
+  cancelledAt              DateTime?
+  updatedAt                DateTime               @updatedAt
+  enterprise               Enterprise             @relation(fields: [enterpriseId], references: [id])
+  subscriptionPlanConfig   SubscriptionPlanConfig @relation(fields: [subscriptionPlanConfigId], references: [id])
+  user                     User                   @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([enterpriseId])
+  @@index([subscriptionPlanConfigId])
+  @@index([status])
+  @@index([referenceCode])
+}
+
+model SubscriptionPlanConfig {
+  id             Int            @id @default(autoincrement())
+  name           String         @unique @db.VarChar(100)
+  description    String?
+  price          Decimal        @db.Decimal(12, 2)
+  durationMonths Int
+  isActive       Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  payments       Payment[]
+  subscriptions  Subscription[]
+
+  @@index([isActive])
+}
+
+model Subscription {
+  id                       Int                    @id @default(autoincrement())
+  enterpriseId             Int
+  subscriptionPlanConfigId Int
+  startDate                DateTime
+  endDate                  DateTime
+  isActive                 Boolean                @default(true)
+  cancelledAt              DateTime?
+  createdAt                DateTime               @default(now())
+  updatedAt                DateTime               @updatedAt
+  enterprise               Enterprise             @relation(fields: [enterpriseId], references: [id])
+  subscriptionPlanConfig   SubscriptionPlanConfig @relation(fields: [subscriptionPlanConfigId], references: [id])
+
+  @@index([enterpriseId])
+}
+
+model Collector {
+  id                    Int                    @id @default(autoincrement())
+  userId                Int                    @unique
+  enterpriseId          Int
+  employeeCode          String
+  primaryZoneId         Int?
+  secondaryZoneId       Int?
+  workingHours          Json
+  trustScore            Int                    @default(100)
+  earnings              Decimal                @default(0) @db.Decimal(12, 2)
+  skipCount             Int                    @default(0)
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  deletedAt             DateTime?
+  enterprise            Enterprise             @relation(fields: [enterpriseId], references: [id])
+  primaryZone           Zone?                  @relation("CollectorPrimaryZone", fields: [primaryZoneId], references: [id])
+  secondaryZone         Zone?                  @relation("CollectorSecondaryZone", fields: [secondaryZoneId], references: [id])
+  user                  User                   @relation(fields: [userId], references: [id])
+  status                CollectorStatus?
+  collectorTaskAttempts CollectorTaskAttempt[]
+  reportAssignments     ReportAssignment[]
+
+  @@unique([enterpriseId, employeeCode])
+  @@index([enterpriseId])
+}
+
+model CollectorStatus {
+  collectorId          Int                   @id
+  availability         CollectorAvailability @default(OFFLINE)
+  currentLatitude      Float?
+  currentLongitude     Float?
+  lastOnlineAt         DateTime?
+  lastOfflineAt        DateTime?
+  lastActivityAt       DateTime?             @default(now())
+  lastAssignedAt       DateTime?             @default(now())
+  deviceId             String?               @db.VarChar(255)
+  queueLength          Int                   @default(0)
+  consecutiveSkipCount Int                   @default(0)
+  updatedAt            DateTime              @updatedAt
+  collector            Collector             @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+
+  @@index([availability])
+  @@index([lastActivityAt])
+}
+
+model Zone {
+  id                  Int         @id @default(autoincrement())
+  enterpriseId        Int
+  code                String      @db.VarChar(50)
+  name                String      @db.VarChar(255)
+  isActive            Boolean     @default(true)
+  provinceCode        String      @db.VarChar(10)
+  districtCode        String?     @db.VarChar(10)
+  wardCode            String?     @db.VarChar(10)
+  boundary            Json?
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  deletedAt           DateTime?
+  primaryCollectors   Collector[] @relation("CollectorPrimaryZone")
+  secondaryCollectors Collector[] @relation("CollectorSecondaryZone")
+  enterprise          Enterprise  @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+
+  @@unique([enterpriseId, code])
+  @@index([enterpriseId])
+}
+
+model Report {
+  id                       Int                       @id @default(autoincrement())
+  citizenId                Int
+  currentEnterpriseId      Int?
+  address                  String
+  latitude                 Float
+  longitude                Float
+  provinceCode             String                    @db.VarChar(10)
+  districtCode             String                    @db.VarChar(10)
+  wardCode                 String                    @db.VarChar(10)
+  description              String?
+  status                   ReportStatus              @default(PENDING)
+  sentAt                   DateTime?
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  arrivedAt                DateTime?
+  arrivalDeadline          DateTime?
+  collectedAt              DateTime?
+  completedAt              DateTime?
+  actualWeight             Decimal?                  @db.Decimal(8, 2)
+  accuracyBucket           AccuracyBucket?
+  evidenceImages           String[]                  @default([])
+  cancelReason             String?
+  citizenConfirmedAt       DateTime?
+  citizenAbsentAt          DateTime?
+  deletedAt                DateTime?
+  collectorTaskAttempts    CollectorTaskAttempt[]
+  complaints               Complaint[]
+  pointTransactions        PointTransaction[]
+  citizen                  User                      @relation(fields: [citizenId], references: [id])
+  actualWasteItems         ReportActualWaste[]
+  assignment               ReportAssignment?
+  reportEnterpriseAttempts ReportEnterpriseAttempt[]
+  evaluation               ReportEvaluation?
+  images                   ReportImage[]
+  wasteItems               ReportWaste[]
+
+  @@index([citizenId])
+  @@index([status])
+}
+
+model ReportWaste {
+  id        Int       @id @default(autoincrement())
+  reportId  Int
+  wasteType WasteType
+  weightKg  Decimal   @db.Decimal(8, 2)
+  createdAt DateTime  @default(now())
+  report    Report    @relation(fields: [reportId], references: [id])
+}
+
+model ReportImage {
+  id       Int    @id @default(autoincrement())
+  reportId Int
+  imageUrl String
+  report   Report @relation(fields: [reportId], references: [id])
+}
+
+model ReportActualWaste {
+  id        Int       @id @default(autoincrement())
+  reportId  Int
+  wasteType WasteType
+  weightKg  Decimal   @db.Decimal(8, 2)
+  createdAt DateTime  @default(now())
+  report    Report    @relation(fields: [reportId], references: [id])
+}
+
+model ReportAssignment {
+  id           Int        @id @default(autoincrement())
+  reportId     Int        @unique
+  enterpriseId Int
+  collectorId  Int?
+  assignedAt   DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  completedAt  DateTime?
+  collector    Collector? @relation(fields: [collectorId], references: [id])
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id])
+  report       Report     @relation(fields: [reportId], references: [id])
+
+  @@index([enterpriseId])
+}
+
+model ReportEnterpriseAttempt {
+  id            Int           @id @default(autoincrement())
+  reportId      Int
+  enterpriseId  Int
+  priorityOrder Int
+  status        AttemptStatus @default(WAITING)
+  sentAt        DateTime      @default(now())
+  expiredAt     DateTime?
+  respondedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  enterprise    Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  report        Report        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, enterpriseId])
+}
+
+model ReportEvaluation {
+  id             Int                     @id @default(autoincrement())
+  reportId       Int                     @unique
+  addressCorrect Boolean
+  wasteAccuracy  Int
+  finalPoint     Int
+  evaluatedAt    DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  report         Report                  @relation(fields: [reportId], references: [id])
+  images         ReportEvaluationImage[]
+}
+
+model ReportEvaluationImage {
+  id           Int              @id @default(autoincrement())
+  evaluationId Int
+  imageUrl     String
+  evaluation   ReportEvaluation @relation(fields: [evaluationId], references: [id])
+}
+
+model PointTransaction {
+  id           Int                  @id @default(autoincrement())
+  reportId     Int?
+  userId       Int
+  type         PointTransactionType @default(EARN)
+  amount       Int
+  balanceAfter Int
+  createdAt    DateTime             @default(now())
+  description  String?              @db.VarChar(255)
+  giftId       Int?
+  gift         Gift?                @relation(fields: [giftId], references: [id])
+  report       Report?              @relation(fields: [reportId], references: [id])
+  user         User                 @relation(fields: [userId], references: [id])
+
+  @@index([reportId, type])
+  @@index([userId])
+  @@index([giftId])
+}
+
+model Complaint {
+  id         Int             @id @default(autoincrement())
+  reportId   Int
+  citizenId  Int
+  content    String
+  status     ComplaintStatus @default(OPEN)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+  resolvedAt DateTime?
+  citizen    User            @relation(fields: [citizenId], references: [id])
+  report     Report          @relation(fields: [reportId], references: [id])
+}
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int
+  type      NotificationType
+  title     String           @db.VarChar(255)
+  content   String
+  meta      Json?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  readAt    DateTime?
+  user      User             @relation(fields: [userId], references: [id])
+}
+
+model PasswordReset {
+  id        Int      @id @default(autoincrement())
+  userID    Int
+  otpHash   String
+  attempt   Int      @default(0)
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userID], references: [id])
+}
+
+model CollectorTaskAttempt {
+  id           Int                 @id @default(autoincrement())
+  reportId     Int
+  collectorId  Int
+  enterpriseId Int
+  status       CollectorTaskStatus @default(PENDING_COLLECTOR)
+  attemptOrder Int
+  expiredAt    DateTime
+  respondedAt  DateTime?
+  createdAt    DateTime            @default(now())
+  collector    Collector           @relation(fields: [collectorId], references: [id], onDelete: Cascade)
+  enterprise   Enterprise          @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  report       Report              @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId, status])
+  @@index([status, expiredAt])
+}
+
+model DispatchLog {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  level     String
+  message   String
+  meta      Json?
+
+  @@index([createdAt])
+}
+
+model Gift {
+  id                Int                @id @default(autoincrement())
+  name              String             @db.VarChar(255)
+  description       String?
+  requiredPoints    Int
+  stock             Int                @default(0)
+  imageUrl          String?            @db.VarChar(255)
+  isActive          Boolean            @default(true)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  pointTransactions PointTransaction[]
+}
+
 enum UserRole {
   CITIZEN
   ENTERPRISE
@@ -15,9 +464,9 @@ enum UserRole {
 
 enum ReportStatus {
   PENDING
-  ACCEPTED // legacy — keep for existing records
-  ENTERPRISE_RESERVED // enterprise accepted, locating collector
-  COLLECTOR_PENDING // collector offered task, awaiting confirm
+  ACCEPTED
+  ENTERPRISE_RESERVED
+  COLLECTOR_PENDING
   ASSIGNED
   ON_THE_WAY
   ARRIVED
@@ -115,462 +564,8 @@ enum AttemptStatus {
   CANCELLED
 }
 
-model Role {
-  id          Int              @id @default(autoincrement())
-  name        UserRole         @unique
-  permissions RolePermission[]
-  users       User[]
-}
-
-model Permission {
-  id          Int              @id @default(autoincrement())
-  code        String           @unique
-  description String?
-  roles       RolePermission[]
-}
-
-model RolePermission {
-  roleId       Int
-  permissionId Int
-  isActive     Boolean @default(true)
-
-  role       Role       @relation(fields: [roleId], references: [id])
-  permission Permission @relation(fields: [permissionId], references: [id])
-
-  @@id([roleId, permissionId])
-}
-
-model User {
-  id        Int           @id @default(autoincrement())
-  email     String        @unique @db.VarChar(255)
-  password  String        @db.VarChar(255)
-  fullName  String        @db.VarChar(255)
-  avatar    String?       @db.VarChar(255)
-  phone     String?       @db.VarChar(20)
-  roleId    Int
-  balance   Int           @default(0)
-  status    AccountStatus @default(ACTIVE)
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
-  deletedAt DateTime?
-
-  role Role @relation(fields: [roleId], references: [id])
-
-  reports               Report[]
-  enterprise            Enterprise?
-  collector             Collector?
-  payments              Payment[]
-  complaints            Complaint[]
-  notifications         Notification[]
-  passwordResets        PasswordReset[]
-  pointTransactions     PointTransaction[]
-
-  @@index([email])
-  @@index([phone])
-  @@index([status])
-  @@index([deletedAt])
-}
-
-model Enterprise {
-  id     Int              @id @default(autoincrement())
-  userId Int              @unique
-  name   String           @db.VarChar(255)
-  status EnterpriseStatus @default(ACTIVE)
-
-  address   String @db.Text
-  latitude  Float
-  longitude Float
-
-  capacityKg Decimal   @db.Decimal(10, 2)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  deletedAt  DateTime?
-  user       User      @relation(fields: [userId], references: [id])
-
-  serviceAreas             EnterpriseServiceArea[]
-  wasteTypes               EnterpriseWasteType[]
-  payments                 Payment[]
-  collectors               Collector[]
-  zones                    Zone[]
-  subscriptions            Subscription[]
-  reportAssignments        ReportAssignment[]
-  reportEnterpriseAttempts ReportEnterpriseAttempt[]
-  collectorTaskAttempts    CollectorTaskAttempt[]
-
-  @@index([name])
-  @@index([status])
-  @@index([latitude, longitude])
-  @@index([deletedAt])
-}
-
-model EnterpriseServiceArea {
-  id           Int @id @default(autoincrement())
-  enterpriseId Int
-
-  provinceCode String
-  districtCode String?
-  wardCode     String?
-
-  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-  @@unique([enterpriseId, provinceCode, districtCode, wardCode])
-  @@index([provinceCode, districtCode, wardCode])
-}
-
-model EnterpriseWasteType {
-  id           Int       @id @default(autoincrement())
-  enterpriseId Int
-  wasteType    WasteType
-
-  enterprise Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-
-  @@unique([enterpriseId, wasteType])
-}
-
-model Payment {
-  id                       Int                    @id @default(autoincrement())
-  userId                   Int
-  enterpriseId             Int
-  subscriptionPlanConfigId Int
-  method                   PaymentMethod
-  status                   PaymentStatus          @default(PENDING)
-  amount                   Decimal                @db.Decimal(12, 2)
-  currency                 String                 @default("VND") @db.VarChar(3)
-  description              String                 @db.VarChar(255)
-  referenceCode            String                 @unique @db.VarChar(50)
-  bankTransactionId        String?                @db.VarChar(100)
-  bankAccountNumber        String?                @db.VarChar(50)
-  bankName                 String?                @db.VarChar(100)
-  notes                    String?                @db.Text
-  webhookId                String?                @db.VarChar(100)
-  webhookData              Json?
-  createdAt                DateTime               @default(now())
-  expiresAt                DateTime?
-  paidAt                   DateTime?
-  failedAt                 DateTime?
-  cancelledAt              DateTime?
-  updatedAt                DateTime               @updatedAt
-  user                     User                   @relation(fields: [userId], references: [id])
-  enterprise               Enterprise             @relation(fields: [enterpriseId], references: [id])
-  subscriptionPlanConfig   SubscriptionPlanConfig @relation(fields: [subscriptionPlanConfigId], references: [id])
-
-  @@index([userId])
-  @@index([enterpriseId])
-  @@index([subscriptionPlanConfigId])
-  @@index([status])
-  @@index([referenceCode])
-}
-
-model SubscriptionPlanConfig {
-  id             Int            @id @default(autoincrement())
-  name           String         @unique @db.VarChar(100)
-  description    String?        @db.Text
-  price          Decimal        @db.Decimal(12, 2)
-  durationMonths Int
-  isActive       Boolean        @default(true)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  subscriptions  Subscription[]
-  payments       Payment[]
-
-  @@index([isActive])
-}
-
-model Subscription {
-  id                       Int                    @id @default(autoincrement())
-  enterpriseId             Int
-  subscriptionPlanConfigId Int
-  startDate                DateTime
-  endDate                  DateTime
-  isActive                 Boolean                @default(true)
-  cancelledAt              DateTime?
-  createdAt                DateTime               @default(now())
-  updatedAt                DateTime               @updatedAt
-
-  enterprise             Enterprise             @relation(fields: [enterpriseId], references: [id])
-  subscriptionPlanConfig SubscriptionPlanConfig @relation(fields: [subscriptionPlanConfigId], references: [id])
-
-  @@index([enterpriseId])
-}
-
-model Collector {
-  id              Int                   @id @default(autoincrement())
-  userId          Int                   @unique
-  enterpriseId    Int
-  employeeCode    String
-  primaryZoneId   Int?
-  secondaryZoneId Int?
-  workingHours    Json
-  trustScore      Int                   @default(100)
-  earnings        Decimal               @default(0) @db.Decimal(12, 2)
-  skipCount       Int                   @default(0)
-  isActive        Boolean               @default(true)
-  createdAt       DateTime              @default(now())
-  updatedAt       DateTime              @updatedAt
-  deletedAt       DateTime?
-  user            User                  @relation(fields: [userId], references: [id])
-  enterprise      Enterprise            @relation(fields: [enterpriseId], references: [id])
-  primaryZone     Zone?                 @relation("CollectorPrimaryZone", fields: [primaryZoneId], references: [id], onDelete: SetNull)
-  secondaryZone   Zone?                 @relation("CollectorSecondaryZone", fields: [secondaryZoneId], references: [id], onDelete: SetNull)
-  status          CollectorStatus?
-  reportAssignments ReportAssignment[]
-  collectorTaskAttempts CollectorTaskAttempt[]
-
-  @@unique([enterpriseId, employeeCode])
-  @@index([enterpriseId])
-}
-
-model CollectorStatus {
-  collectorId      Int                   @id
-  availability     CollectorAvailability @default(OFFLINE)
-  currentLatitude  Float?
-  currentLongitude Float?
-  lastOnlineAt     DateTime?
-  lastOfflineAt    DateTime?
-  lastActivityAt   DateTime?             @default(now())
-  lastAssignedAt   DateTime?             @default(now())
-  deviceId         String?               @db.VarChar(255)
-  queueLength      Int                   @default(0)
-  consecutiveSkipCount Int               @default(0)
-  updatedAt        DateTime              @updatedAt
-  collector        Collector             @relation(fields: [collectorId], references: [id], onDelete: Cascade)
-
-  @@index([availability])
-  @@index([lastActivityAt])
-}
-
-
-model Zone {
-  id              Int         @id @default(autoincrement())
-  enterpriseId    Int
-  code            String      @db.VarChar(50)
-  name            String      @db.VarChar(255)
-  isActive        Boolean     @default(true)
-  provinceCode    String      @db.VarChar(10)
-  districtCode    String?     @db.VarChar(10)
-  wardCode        String?     @db.VarChar(10)
-  boundary        Json?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  deletedAt       DateTime?
-  enterprise      Enterprise  @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-  primaryCollectors Collector[] @relation("CollectorPrimaryZone")
-  secondaryCollectors Collector[] @relation("CollectorSecondaryZone")
-
-  @@unique([enterpriseId, code])
-  @@index([enterpriseId])
-}
-
-model Report {
-  id                  Int          @id @default(autoincrement())
-  citizenId           Int
-  currentEnterpriseId Int?
-  address             String       @db.Text
-  latitude            Float
-  longitude           Float
-  provinceCode        String       @db.VarChar(10)
-  districtCode        String       @db.VarChar(10)
-  wardCode            String       @db.VarChar(10)
-  description         String?      @db.Text
-  status              ReportStatus @default(PENDING)
-  sentAt              DateTime?
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  arrivedAt           DateTime?
-  arrivalDeadline     DateTime?
-  collectedAt         DateTime?
-  completedAt         DateTime?
-  actualWeight        Decimal?     @db.Decimal(8, 2)
-  accuracyBucket      AccuracyBucket?
-  evidenceImages      String[]     @default([])
-  cancelReason          String?      @db.Text
-  citizenConfirmedAt    DateTime?    // Citizen bấm "Tôi có mặt" khi collector ARRIVED
-  citizenAbsentAt       DateTime?    // Citizen tự báo vắng (chủ động)
-  deletedAt             DateTime?
-  citizen             User         @relation(fields: [citizenId], references: [id])
-  wasteItems          ReportWaste[]
-  images              ReportImage[]
-  assignment          ReportAssignment?
-  evaluation          ReportEvaluation?
-  pointTransactions   PointTransaction[]
-  complaints          Complaint[]
-  reportEnterpriseAttempts ReportEnterpriseAttempt[]
-  collectorTaskAttempts CollectorTaskAttempt[]
-
-  @@index([citizenId])
-  @@index([status])
-}
-
-model ReportWaste {
-  id        Int       @id @default(autoincrement())
-  reportId  Int
-  wasteType WasteType
-  weightKg  Decimal   @db.Decimal(8, 2)
-  createdAt DateTime  @default(now())
-  report    Report    @relation(fields: [reportId], references: [id])
-}
-
-model ReportImage {
-  id       Int    @id @default(autoincrement())
-  reportId Int
-  imageUrl String
-  report   Report @relation(fields: [reportId], references: [id])
-}
-
-model ReportAssignment {
-  id           Int       @id @default(autoincrement())
-  reportId     Int       @unique
-  enterpriseId Int
-  collectorId  Int?
-  assignedAt   DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  completedAt  DateTime?
-  report       Report    @relation(fields: [reportId], references: [id])
-  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id])
-  collector    Collector? @relation(fields: [collectorId], references: [id])
-
-  @@index([enterpriseId])
-}
-
-model ReportEnterpriseAttempt {
-  id            Int           @id @default(autoincrement())
-  reportId      Int
-  enterpriseId  Int
-  priorityOrder Int
-  status        AttemptStatus @default(WAITING)
-  sentAt        DateTime      @default(now())
-  expiredAt     DateTime?
-  respondedAt   DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  report        Report        @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  enterprise    Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-
-  @@unique([reportId, enterpriseId])
-}
-
-model ReportEvaluation {
-  id             Int      @id @default(autoincrement())
-  reportId       Int      @unique
-  addressCorrect Boolean
-  wasteAccuracy  Int
-  finalPoint     Int
-  evaluatedAt    DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  report         Report   @relation(fields: [reportId], references: [id])
-  images         ReportEvaluationImage[]
-}
-
-model ReportEvaluationImage {
-  id           Int    @id @default(autoincrement())
-  evaluationId Int
-  imageUrl     String
-  evaluation   ReportEvaluation @relation(fields: [evaluationId], references: [id])
-}
-
-
 enum PointTransactionType {
   EARN
   SPEND
   REFUND
 }
-
-model PointTransaction {
-  id           Int                  @id @default(autoincrement())
-  reportId     Int?
-  giftId       Int?
-  userId       Int
-  type         PointTransactionType @default(EARN)
-  amount       Int
-  balanceAfter Int
-  description  String?              @db.VarChar(255)
-  createdAt    DateTime             @default(now())
-
-  report       Report?              @relation(fields: [reportId], references: [id])
-  gift         Gift?                @relation(fields: [giftId], references: [id])
-  user         User                 @relation(fields: [userId], references: [id])
-
-  @@index([reportId, type])
-  @@index([userId])
-  @@index([giftId])
-}
-
-model Complaint {
-  id        Int             @id @default(autoincrement())
-  reportId  Int
-  citizenId Int
-  content   String          @db.Text
-  status    ComplaintStatus @default(OPEN)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  resolvedAt DateTime?
-  report    Report          @relation(fields: [reportId], references: [id])
-  citizen   User            @relation(fields: [citizenId], references: [id])
-}
-
-
-
-model Notification {
-  id        Int              @id @default(autoincrement())
-  userId    Int
-  type      NotificationType
-  title     String           @db.VarChar(255)
-  content   String           @db.Text
-  meta      Json?
-  isRead    Boolean          @default(false)
-  createdAt DateTime         @default(now())
-  readAt    DateTime?
-  user      User             @relation(fields: [userId], references: [id])
-}
-
-model PasswordReset {
-  id        Int      @id @default(autoincrement())
-  userID    Int
-  otpHash   String
-  attempt   Int      @default(0)
-  used      Boolean  @default(false)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  user      User     @relation(fields: [userID], references: [id])
-}
-
-model CollectorTaskAttempt {
-  id           Int                 @id @default(autoincrement())
-  reportId     Int
-  collectorId  Int
-  enterpriseId Int
-  status       CollectorTaskStatus @default(PENDING_COLLECTOR)
-  attemptOrder Int
-  expiredAt    DateTime
-  respondedAt  DateTime?
-  createdAt    DateTime            @default(now())
-  report       Report              @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  collector    Collector           @relation(fields: [collectorId], references: [id], onDelete: Cascade)
-  enterprise   Enterprise          @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-
-  @@index([reportId, status])
-  @@index([status, expiredAt])
-}
-
-model DispatchLog {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  level     String
-  message   String
-  meta      Json?
-
-  @@index([createdAt])
-}
-
-model Gift {
-  id             Int                @id @default(autoincrement())
-  name           String             @db.VarChar(255)
-  description    String?            @db.Text
-  requiredPoints Int
-  stock          Int                @default(0)
-  imageUrl       String?            @db.VarChar(255)
-  isActive       Boolean            @default(true)
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
-  pointTransactions PointTransaction[]
-}
-

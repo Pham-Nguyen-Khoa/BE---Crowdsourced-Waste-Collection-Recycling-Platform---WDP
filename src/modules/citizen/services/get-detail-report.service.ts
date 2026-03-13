@@ -6,7 +6,7 @@ import { PrismaService } from 'src/libs/prisma/prisma.service';
 export class GetDetailReportService {
   private readonly logger = new Logger(GetDetailReportService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getDetailReport(userId: number, reportId: number) {
     // 2. Lấy report theo ID
@@ -14,6 +14,7 @@ export class GetDetailReportService {
       where: { id: reportId },
       include: {
         wasteItems: true,
+        actualWasteItems: true,
         images: true,
         assignment: {
           include: {
@@ -55,6 +56,7 @@ export class GetDetailReportService {
       id: report.id,
       status: report.status,
       address: report.address,
+
       latitude: report.latitude,
       longitude: report.longitude,
       provinceCode: report.provinceCode,
@@ -68,22 +70,30 @@ export class GetDetailReportService {
         wasteType: w.wasteType,
         weightKg: Number(w.weightKg),
       })),
+      actualWasteItems: report.actualWasteItems.length > 0
+        ? report.actualWasteItems.map((w) => ({
+          wasteType: w.wasteType,
+          weightKg: Number(w.weightKg),
+        }))
+        : null,
+      actualWeight: report.actualWeight ? Number(report.actualWeight) : null,
+      accuracyBucket: report.accuracyBucket,
       images: report.images.map((i) => i.imageUrl),
       enterprise: report.assignment?.enterprise
         ? {
-            id: report.assignment.enterprise.id,
-            name: report.assignment.enterprise.name,
-            phone: report.assignment.enterprise.user?.phone,
-            avatar: report.assignment.enterprise.user?.avatar,
-          }
+          id: report.assignment.enterprise.id,
+          name: report.assignment.enterprise.name,
+          phone: report.assignment.enterprise.user?.phone,
+          avatar: report.assignment.enterprise.user?.avatar,
+        }
         : null,
       collector: report.assignment?.collector
         ? {
-            id: report.assignment.collector.id,
-            fullName: report.assignment.collector.user?.fullName,
-            phone: report.assignment.collector.user?.phone,
-            avatar: report.assignment.collector.user?.avatar,
-          }
+          id: report.assignment.collector.id,
+          fullName: report.assignment.collector.user?.fullName,
+          phone: report.assignment.collector.user?.phone,
+          avatar: report.assignment.collector.user?.avatar,
+        }
         : null,
     };
 

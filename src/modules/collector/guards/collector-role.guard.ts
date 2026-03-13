@@ -27,7 +27,6 @@ export class CollectorRoleGuard implements CanActivate {
     }
 
     // Fetch collector profile to ensure it exists and attach collectorId
-    console.log(user);
     const collector = await this.prisma.collector.findUnique({
       where: { userId: user.id, deletedAt: null },
       select: { id: true, isActive: true },

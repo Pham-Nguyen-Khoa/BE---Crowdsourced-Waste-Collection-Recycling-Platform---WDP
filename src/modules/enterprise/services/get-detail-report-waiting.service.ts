@@ -7,7 +7,7 @@ import { getDistance } from 'geolib';
 export class GetDetailReportWaitingService {
   private readonly logger = new Logger(GetDetailReportWaitingService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getDetail(userId: number, reportId: number) {
     // 1. Kiểm tra enterprise
@@ -25,6 +25,7 @@ export class GetDetailReportWaitingService {
       where: { id: reportId },
       include: {
         wasteItems: true,
+        actualWasteItems: true,
         images: true,
         citizen: {
           select: {
@@ -46,9 +47,9 @@ export class GetDetailReportWaitingService {
     const distanceKm =
       enterprise.latitude && enterprise.longitude
         ? getDistance(
-            { latitude: enterprise.latitude, longitude: enterprise.longitude },
-            { latitude: report.latitude, longitude: report.longitude },
-          ) / 1000
+          { latitude: enterprise.latitude, longitude: enterprise.longitude },
+          { latitude: report.latitude, longitude: report.longitude },
+        ) / 1000
         : 0;
 
     // 7. Trả về chi tiết
@@ -74,6 +75,7 @@ export class GetDetailReportWaitingService {
             wasteType: w.wasteType,
             weightKg: Number(w.weightKg),
           })),
+
 
           images: report.images.map((i) => i.imageUrl),
 

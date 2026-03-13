@@ -70,13 +70,27 @@ export class RewardService {
         let finalReward = 0;
         const rewardBreakdown: string[] = [];
         const baseReward = 100; // Default when PointConfig is removed
+
+        const vietnameseWasteTypes: Record<string, string> = {
+          ORGANIC: 'RÁC HỮU CƠ',
+          RECYCLABLE: 'RÁC TÁI CHẾ',
+          HAZARDOUS: 'RÁC NGUY HẠI',
+        };
+
+        const vietnameseAccuracy: Record<string, string> = {
+          HEAVY: 'Sai lệch nhiều',
+          MODERATE: 'Sai lệch vừa phải',
+          MATCH: 'Chính xác',
+        };
+
         for (const item of payload.perTypeWeights) {
           const wasteTypeMultiplier = wasteTypeMultipliers[item.wasteType] ?? 1.0;
           const itemReward = Math.round(
             baseReward * item.weight * accuracyMultiplier * wasteTypeMultiplier,
           );
           finalReward += itemReward;
-          rewardBreakdown.push(`${item.wasteType}: ${item.weight}kg = ${itemReward}pts`);
+          const label = vietnameseWasteTypes[item.wasteType] || item.wasteType;
+          rewardBreakdown.push(`${label}: ${item.weight}kg = ${itemReward}pts`);
         }
 
         // 3. Update Citizen balance
@@ -87,6 +101,7 @@ export class RewardService {
         });
 
         // 4. Insert PointTransaction (audit log with description)
+        const accuracyLabel = vietnameseAccuracy[payload.accuracyBucket] || payload.accuracyBucket;
         await tx.pointTransaction.create({
           data: {
             reportId: payload.reportId,
@@ -94,7 +109,7 @@ export class RewardService {
             type: PointTransactionType.EARN,
             amount: finalReward,
             balanceAfter: updatedCitizenUser.balance,
-            description: `Thu gom ${payload.totalActualWeight}kg (${rewardBreakdown.join('; ')}) – độ chính xác: ${payload.accuracyBucket}`,
+            description: `Thu gom ${payload.totalActualWeight}kg (${rewardBreakdown.join('; ')}) – độ chính xác: ${accuracyLabel}`,
           },
         });
 
@@ -125,13 +140,20 @@ export class RewardService {
         // ──────────────────────────────────────────────
         // 7. Update Report → COMPLETED
         // ──────────────────────────────────────────────
+        const now = new Date();
         const updatedReport = await tx.report.updateMany({
           where: { id: payload.reportId, status: 'COLLECTED' },
           data: {
             status: 'COMPLETED',
-            completedAt: new Date(),
-            updatedAt: new Date(),
+            completedAt: now,
+            updatedAt: now,
           },
+        });
+
+        // Cập nhật completedAt cho assignment
+        await tx.reportAssignment.update({
+          where: { reportId: payload.reportId },
+          data: { completedAt: now },
         });
 
         if (updatedReport.count === 0) {

@@ -7,6 +7,7 @@ import { SePayWebhookDto } from '../dtos/sepay-webhook.dto';
 import { errorResponse, successResponse } from 'src/common/utils/response.util';
 import { QRGenerator } from 'src/common/utils/qr.util';
 import { PrismaService } from 'src/libs/prisma/prisma.service';
+import { DashboardQueryDto, RankingQueryDto, DashboardStatsQueryDto } from '../dtos/dashboard-query.dto';
 
 @Injectable()
 export class EnterpriseService {
@@ -683,6 +684,13 @@ export class EnterpriseService {
                     wasteType: wi.wasteType,
                     weightKg: Number(wi.weightKg)
                 })),
+                actualWasteItems: (a.report as any).actualWasteItems?.length > 0 ? (a.report as any).actualWasteItems.map(wi => ({
+                    wasteType: wi.wasteType,
+                    weightKg: Number(wi.weightKg)
+                })) : null,
+                actualWeight: a.report.actualWeight ? Number(a.report.actualWeight) : null,
+                accuracyBucket: a.report.accuracyBucket,
+
                 images: a.report.images.map(img => img.imageUrl),
                 citizen: {
                     fullName: a.report.citizen.fullName,
@@ -759,5 +767,220 @@ export class EnterpriseService {
             console.error('Error in getTransactionHistory:', error);
             return errorResponse(500, 'Lỗi lấy lịch sử giao dịch', 'GET_TRANSACTIONS_FAILED');
         }
+    }
+
+    /**
+     * Dashboard Summary
+     */
+    async getDashboardSummary(userId: number, query: DashboardQueryDto) {
+        const enterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
+        if (!enterprise) return errorResponse(400, 'Doanh nghiệp không tồn tại');
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+
+        const startDate = query.startDate ? new Date(query.startDate) : thirtyDaysAgo;
+        const endDate = query.endDate ? new Date(query.endDate) : now;
+
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        // 1. Total weight & completed reports
+        const stats = await this.prisma.report.aggregate({
+            where: {
+                currentEnterpriseId: enterprise.id,
+                status: 'COMPLETED',
+                completedAt: { gte: startDate, lte: endDate }
+            },
+            _sum: { actualWeight: true },
+            _count: { id: true }
+        });
+
+        // 2. Active collectors
+        const activeCollectors = await this.prisma.collector.count({
+            where: {
+                enterpriseId: enterprise.id,
+                isActive: true,
+                deletedAt: null
+            }
+        });
+
+        // 3. Today's tasks (Breakdown)
+        const [total, pending, collecting, completed] = await Promise.all([
+            this.prisma.report.count({
+                where: {
+                    currentEnterpriseId: enterprise.id,
+                    createdAt: { gte: todayStart, lte: todayEnd }
+                }
+            }),
+            this.prisma.report.count({
+                where: {
+                    currentEnterpriseId: enterprise.id,
+                    status: { in: ['ENTERPRISE_RESERVED', 'COLLECTOR_PENDING'] },
+                    createdAt: { gte: todayStart, lte: todayEnd }
+                }
+            }),
+            this.prisma.report.count({
+                where: {
+                    currentEnterpriseId: enterprise.id,
+                    status: { in: ['ASSIGNED', 'ON_THE_WAY', 'ARRIVED', 'COLLECTED'] },
+                    createdAt: { gte: todayStart, lte: todayEnd }
+                }
+            }),
+            this.prisma.report.count({
+                where: {
+                    currentEnterpriseId: enterprise.id,
+                    status: 'COMPLETED',
+                    completedAt: { gte: todayStart, lte: todayEnd }
+                }
+            })
+        ]);
+
+        return successResponse(200, {
+            totalWeight: Number(stats._sum.actualWeight || 0),
+            totalCompletedReports: stats._count.id,
+            activeCollectors,
+            todayTasks: {
+                total,
+                pending,
+                collecting,
+                completed
+            },
+            period: { startDate, endDate }
+        });
+    }
+
+    /**
+     * Collector Ranking
+     */
+    async getCollectorRanking(userId: number, query: RankingQueryDto) {
+        const enterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
+        if (!enterprise) return errorResponse(404, 'Doanh nghiệp không tồn tại');
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+
+        const startDate = query.startDate ? new Date(query.startDate) : thirtyDaysAgo;
+        const endDate = query.endDate ? new Date(query.endDate) : now;
+
+        const collectors = await this.prisma.collector.findMany({
+            where: { enterpriseId: enterprise.id, deletedAt: null },
+            include: {
+                user: { select: { fullName: true, avatar: true, email: true } },
+                reportAssignments: {
+                    where: {
+                        report: {
+                            status: 'COMPLETED',
+                            completedAt: { gte: startDate, lte: endDate }
+                        }
+                    },
+                    include: { report: true }
+                }
+            }
+        });
+
+        const ranking = collectors.map(c => {
+            const completedTasks = c.reportAssignments.length;
+            const totalWeight = c.reportAssignments.reduce((sum, a) => sum + Number(a.report.actualWeight || 0), 0);
+            return {
+                id: c.id,
+                fullName: c.user.fullName,
+                avatar: c.user.avatar,
+                employeeCode: c.employeeCode,
+                trustScore: c.trustScore,
+                completedTasks,
+                totalWeight
+            };
+        });
+
+        // Sort ranking
+        ranking.sort((a, b) => {
+            const valA = (a as any)[query.sortBy || 'weight'] || 0;
+            const valB = (b as any)[query.sortBy || 'weight'] || 0;
+            return query.order === 'desc' ? valB - valA : valA - valB;
+        });
+
+        return successResponse(200, ranking);
+    }
+
+    /**
+     * Waste Statistics
+     */
+    async getWasteStats(userId: number, query: DashboardStatsQueryDto) {
+        const enterprise = await this.enterpriseRepository.findEnterpriseByUserId(userId);
+        if (!enterprise) return errorResponse(404, 'Doanh nghiệp không tồn tại');
+
+        const now = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(now.getDate() - 30);
+
+        const startDate = query.startDate ? new Date(query.startDate) : thirtyDaysAgo;
+        const endDate = query.endDate ? new Date(query.endDate) : now;
+
+        const reports = await this.prisma.report.findMany({
+            where: {
+                currentEnterpriseId: enterprise.id,
+                status: 'COMPLETED',
+                completedAt: { gte: startDate, lte: endDate }
+            },
+            include: {
+                wasteItems: true,
+                actualWasteItems: true
+            }
+        });
+
+        const statsMap = new Map<string, any>();
+
+        reports.forEach(r => {
+            if (!r.completedAt) return;
+            const date = new Date(r.completedAt);
+            let groupKey = '';
+            let label = '';
+
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+
+            if (query.interval === 'month') {
+                groupKey = `${y}-${m}`;
+                label = `Tháng ${m}/${y}`;
+            } else if (query.interval === 'week') {
+                const firstDayOfYear = new Date(y, 0, 1);
+                const pastDaysOfYear = (date.getTime() - firstDayOfYear.getTime()) / 86400000;
+                const weekNum = Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
+                groupKey = `${y}-W${String(weekNum).padStart(2, '0')}`;
+                label = `Tuần ${weekNum}/${y}`;
+            } else {
+                groupKey = `${y}-${m}-${d}`;
+                label = `Ngày ${d}/${m}`;
+            }
+
+            if (!statsMap.has(groupKey)) {
+                statsMap.set(groupKey, { ORGANIC: 0, RECYCLABLE: 0, HAZARDOUS: 0, _label: label });
+            }
+            const groupStats = statsMap.get(groupKey);
+
+            // Ưu tiên lấy dữ liệu đã xác thực (ActualWasteItems)
+            // Nếu chưa có (đơn cũ), fallback về dữ liệu Citizen khai báo (WasteItems)
+            const itemsToCount = r.actualWasteItems.length > 0 ? r.actualWasteItems : r.wasteItems;
+
+            itemsToCount.forEach(wi => {
+                const type = wi.wasteType as string;
+                groupStats[type] = (groupStats[type] || 0) + Number(wi.weightKg);
+            });
+        });
+
+        const result = Array.from(statsMap.entries())
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([_, stats]) => {
+                const { _label, ...rest } = stats;
+                return { label: _label, ...rest };
+            });
+
+        return successResponse(200, result);
     }
 }

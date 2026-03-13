@@ -10,6 +10,7 @@ export const PermissionCode = {
   CREATE_COLLECTOR: 'CREATE_COLLECTOR',
   DELETE_COLLECTOR: 'DELETE_COLLECTOR',
   UPDATE_COLLECTOR: 'UPDATE_COLLECTOR',
+  VIEW_ENTERPRISE_DASHBOARD: 'VIEW_ENTERPRISE_DASHBOARD',
 } as const;
 
 export type PermissionCodeType =
@@ -223,6 +224,11 @@ export const resourcesV1 = {
   TOGGLE_ORDER_ACCEPTANCE: {
     name: 'Toggle Order Acceptance',
     displayName: 'Bật/tắt trạng thái nhận đơn',
+    parent: 'Enterprise',
+  },
+  VIEW_ENTERPRISE_DASHBOARD: {
+    name: 'View Enterprise Dashboard',
+    displayName: 'Xem báo cáo doanh nghiệp',
     parent: 'Enterprise',
   },
 };

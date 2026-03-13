@@ -17,6 +17,7 @@ import { GetDetailReportWaitingService } from './services/get-detail-report-wait
 import { ToggleOrderAcceptanceController } from './controllers/toggle-order-acceptance.controller';
 import { ToggleOrderAcceptanceService } from './services/toggle-order-acceptance.service';
 import { SubscriptionController } from './controllers/subscription.controller';
+import { EnterpriseDashboardController } from './controllers/enterprise-dashboard.controller';
 
 
 import { CitizenModule } from '../citizen/citizen.module';
@@ -29,6 +30,7 @@ const httpController = [
     GetDetailReportWaitingController,
     ToggleOrderAcceptanceController,
     SubscriptionController,
+    EnterpriseDashboardController,
 ]
 
 

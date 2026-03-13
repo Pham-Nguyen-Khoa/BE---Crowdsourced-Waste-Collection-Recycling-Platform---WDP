@@ -10,7 +10,7 @@ import {
 export class GetAllReportService {
   private readonly logger = new Logger(GetAllReportService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async getAllReport(userId: number, query: GetReportsQueryDto) {
     try {
@@ -48,6 +48,7 @@ export class GetAllReportService {
           orderBy: { createdAt: 'desc' },
           include: {
             wasteItems: true,
+            actualWasteItems: true,
           },
         }),
         this.prisma.report.count({ where }),
@@ -66,6 +67,14 @@ export class GetAllReportService {
           wasteType: w.wasteType,
           weightKg: Number(w.weightKg),
         })),
+        actualWasteItems: report.actualWasteItems.length > 0
+          ? report.actualWasteItems.map((w) => ({
+            wasteType: w.wasteType,
+            weightKg: Number(w.weightKg),
+          }))
+          : null,
+        actualWeight: report.actualWeight ? Number(report.actualWeight) : null,
+        accuracyBucket: report.accuracyBucket,
         createdAt: report.createdAt,
         cancelReason: report.cancelReason,
       }));

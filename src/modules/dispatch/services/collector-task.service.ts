@@ -515,6 +515,15 @@ export class CollectorTaskService {
         },
       });
 
+      // Ghi nhận breakdown rác THỰC TẾ vào bảng ReportActualWaste
+      await tx.reportActualWaste.createMany({
+        data: perTypeWeights.map((pw) => ({
+          reportId: Number(dto.reportId),
+          wasteType: pw.wasteType,
+          weightKg: pw.weight,
+        })),
+      });
+
       // Idempotent guard
       if (updatedReport.count === 0) return null;
 
