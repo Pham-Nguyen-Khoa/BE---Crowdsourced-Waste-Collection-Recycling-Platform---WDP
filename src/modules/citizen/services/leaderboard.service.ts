@@ -80,22 +80,26 @@ export class LeaderboardService {
 
   private async getTopPoints(timeframe: LeaderboardTimeframe, dateFilter: any): Promise<RankingRecord[]> {
     if (timeframe === LeaderboardTimeframe.ALL_TIME) {
-      return this.prisma.user.findMany({
-        where: { roleId: 1, deletedAt: null },
+      return this.prisma.userPoint.findMany({
+        where: { user: { roleId: 1, deletedAt: null } },
         select: {
-          id: true,
-          fullName: true,
-          avatar: true,
-          balance: true,
+          points: true,
+          user: {
+            select: {
+              id: true,
+              fullName: true,
+              avatar: true,
+            }
+          }
         },
-        orderBy: { balance: 'desc' },
+        orderBy: { points: 'desc' },
         take: 50,
-      }).then(users => users.map((u, index) => ({
+      }).then(pointsRows => pointsRows.map((u, index) => ({
         rank: index + 1,
-        userId: u.id,
-        fullName: u.fullName,
-        avatar: u.avatar,
-        value: u.balance,
+        userId: u.user.id,
+        fullName: u.user.fullName,
+        avatar: u.user.avatar,
+        value: u.points,
       })));
     } else {
       const aggregations = await this.prisma.pointTransaction.groupBy({
@@ -202,13 +206,13 @@ export class LeaderboardService {
     try {
       if (category === LeaderboardCategory.POINTS) {
         if (timeframe === LeaderboardTimeframe.ALL_TIME) {
-          const user = await this.prisma.user.findUnique({ 
-            where: { id: userId }, 
-            select: { balance: true } 
+          const userPoint = await this.prisma.userPoint.findUnique({ 
+            where: { userId: userId }, 
+            select: { points: true } 
           });
-          myValue = user?.balance || 0;
-          rank = await this.prisma.user.count({ 
-            where: { roleId: 1, balance: { gt: myValue }, deletedAt: null } 
+          myValue = userPoint?.points || 0;
+          rank = await this.prisma.userPoint.count({ 
+            where: { user: { roleId: 1, deletedAt: null }, points: { gt: myValue } } 
           }) + 1;
         } else {
           const agg = await this.prisma.pointTransaction.aggregate({

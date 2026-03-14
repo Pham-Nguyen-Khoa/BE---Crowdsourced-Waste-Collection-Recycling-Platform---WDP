@@ -29,7 +29,7 @@ export class CollectorTaskService {
     private readonly eventEmitter: EventEmitter2,
     private readonly notificationService: NotificationService,
     private readonly supabaseService: SupabaseService,
-  ) { }
+  ) {}
 
   async getMyPendingTasks(collectorId: number) {
     const tasks = await this.prisma.collectorTaskAttempt.findMany({
@@ -49,7 +49,7 @@ export class CollectorTaskService {
                 fullName: true,
                 phone: true,
                 email: true,
-                avatar: true
+                avatar: true,
               },
             },
           },
@@ -75,7 +75,11 @@ export class CollectorTaskService {
       };
     });
 
-    return successResponse(200, formattedTasks, 'Lấy danh sách task thành công');
+    return successResponse(
+      200,
+      formattedTasks,
+      'Lấy danh sách task thành công',
+    );
   }
 
   /**
@@ -595,15 +599,6 @@ export class CollectorTaskService {
 
       if (!report) return errorResponse(404, 'Không tìm thấy báo cáo');
 
-      // Guard 1: Citizen đã xác nhận có mặt → không cho báo vắng
-      if (report.citizenConfirmedAt) {
-        return errorResponse(
-          400,
-          'Citizen đã xác nhận có mặt tại điểm thu gom. Bạn không thể báo vắng.',
-        );
-      }
-
-      // Guard 2: Chưa đủ 15 phút
       const now = new Date();
       if (
         report.status === 'ARRIVED' &&
@@ -725,21 +720,21 @@ export class CollectorTaskService {
       await this.queueService.decrement(collectorId, tx);
       await this.activityService.touch(collectorId, tx);
 
-      const penaltyPoint = 50;
-      const updatedCitizen = await tx.user.update({
-        where: { id: report.citizenId },
-        data: { balance: { decrement: penaltyPoint } },
-        select: { balance: true },
+      // Log the fake report incident
+      const collector = await tx.collector.findUnique({
+        where: { id: collectorId },
+        select: { userId: true },
       });
 
-      await tx.pointTransaction.create({
+      if (!collector) return errorResponse(404, 'Không tìm thấy thông tin collector');
+
+      await tx.reportFakeLog.create({
         data: {
           reportId,
-          userId: report.citizenId,
-          type: PointTransactionType.SPEND,
-          amount: penaltyPoint,
-          balanceAfter: updatedCitizen.balance,
-          description: `Bị trừ uy tín do báo cáo sự cố không có rác (Lý do: ${reason})`,
+          reporterId: collector.userId,
+          violatorId: report.citizenId,
+          reason,
+          images: uploadedImageUrls,
         },
       });
 
@@ -748,9 +743,9 @@ export class CollectorTaskService {
           await this.notificationService.createAndNotify({
             userId: report.citizenId,
             title: '⚠️ Báo cáo của bạn bị đánh dấu sự cố',
-            content: `Báo cáo sự cố từ người thu gom (Lý do: ${reason}). Bạn đã bị trừ ${penaltyPoint} điểm.`,
+            content: `Báo cáo sự cố từ người thu gom (Lý do: ${reason}).`,
             type: 'REPORT_STATUS_CHANGED',
-            meta: { reportId, type: 'DISPUTE_REPORTED', penaltyPoint },
+            meta: { reportId, type: 'DISPUTE_REPORTED' },
           });
         } catch (err) {
           this.logger.error(

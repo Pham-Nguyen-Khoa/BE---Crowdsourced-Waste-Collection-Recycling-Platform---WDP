@@ -46,7 +46,10 @@ export class GiftController {
       type: 'object',
       properties: {
         name: { type: 'string', example: 'Voucher VinMart 50k' },
-        description: { type: 'string', example: 'Dùng để mua hàng tại VinMart' },
+        description: {
+          type: 'string',
+          example: 'Dùng để mua hàng tại VinMart',
+        },
         requiredPoints: { type: 'number', example: 500 },
         stock: { type: 'number', example: 100 },
         image: {
@@ -64,7 +67,7 @@ export class GiftController {
   ) {
     if (file) {
       const urls = await this.supabaseService.uploadImages([file], 'gifts');
-      dto.imageUrl = urls[0];
+      dto.image = urls[0];
     }
     return await this.giftService.createGift(dto);
   }

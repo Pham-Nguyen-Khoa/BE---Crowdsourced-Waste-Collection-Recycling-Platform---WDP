@@ -1,8 +1,10 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateComplaintDto {
   @ApiProperty({ example: 1 })
+  @Type(() => Number)
   @IsNumber()
   @IsNotEmpty()
   reportId: number;
@@ -13,4 +15,8 @@ export class CreateComplaintDto {
   @IsString()
   @IsNotEmpty()
   content: string;
+
+  @ApiProperty({ type: 'array', items: { type: 'string', format: 'binary' }, required: false })
+  @IsOptional()
+  files?: any[];
 }

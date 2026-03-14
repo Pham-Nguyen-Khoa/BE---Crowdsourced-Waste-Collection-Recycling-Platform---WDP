@@ -11,7 +11,7 @@ export class RewardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
-  ) { }
+  ) {}
 
   /**
    * GIAI ĐOẠN 4: Settlement tài chính
@@ -84,7 +84,8 @@ export class RewardService {
         };
 
         for (const item of payload.perTypeWeights) {
-          const wasteTypeMultiplier = wasteTypeMultipliers[item.wasteType] ?? 1.0;
+          const wasteTypeMultiplier =
+            wasteTypeMultipliers[item.wasteType] ?? 1.0;
           const itemReward = Math.round(
             baseReward * item.weight * accuracyMultiplier * wasteTypeMultiplier,
           );
@@ -93,23 +94,26 @@ export class RewardService {
           rewardBreakdown.push(`${label}: ${item.weight}kg = ${itemReward}pts`);
         }
 
-        // 3. Update Citizen balance
-        const updatedCitizenUser = await tx.user.update({
-          where: { id: payload.citizenId },
-          data: { balance: { increment: finalReward } },
-          select: { balance: true },
+        // 3. Update Citizen UserPoint
+        const updatedUserPoint = await tx.userPoint.upsert({
+          where: { userId: payload.citizenId },
+          update: { points: { increment: finalReward } },
+          create: { userId: payload.citizenId, points: finalReward },
         });
 
         // 4. Insert PointTransaction (audit log with description)
-        const accuracyLabel = vietnameseAccuracy[payload.accuracyBucket] || payload.accuracyBucket;
+        const accuracyLabel =
+          vietnameseAccuracy[payload.accuracyBucket] || payload.accuracyBucket;
         await tx.pointTransaction.create({
           data: {
             reportId: payload.reportId,
             userId: payload.citizenId,
             type: PointTransactionType.EARN,
             amount: finalReward,
-            balanceAfter: updatedCitizenUser.balance,
-            description: `Thu gom ${payload.totalActualWeight}kg (${rewardBreakdown.join('; ')}) – độ chính xác: ${accuracyLabel}`,
+            balanceAfter: updatedUserPoint.points,
+            description: `Bạn đã thu gom ${payload.totalActualWeight} kg rác. 
+Phần thưởng: ${rewardBreakdown.join(', ')}. 
+Đánh giá phân loại: ${accuracyLabel}.`,
           },
         });
 
@@ -118,8 +122,11 @@ export class RewardService {
         // ──────────────────────────────────────────────
         let collectorEarnings = 0;
         for (const item of payload.perTypeWeights) {
-          const wasteTypeMultiplier = wasteTypeMultipliers[item.wasteType] ?? 1.0;
-          collectorEarnings += Math.round(item.weight * 1000 * wasteTypeMultiplier);
+          const wasteTypeMultiplier =
+            wasteTypeMultipliers[item.wasteType] ?? 1.0;
+          collectorEarnings += Math.round(
+            item.weight * 1000 * wasteTypeMultiplier,
+          );
         }
         const SUCCESS_TRUST_SCORE = 2; // Điểm thưởng mặc định khi hoàn thành
 
@@ -134,7 +141,10 @@ export class RewardService {
         // Reset consecutiveSkipCount khi hoàn thành task (họ đang thực sự làm việc)
         await tx.collectorStatus.update({
           where: { collectorId: payload.collectorId },
-          data: { available: "ONLINE_AVAILABLE" } as any,
+          data: {
+            availability: 'ONLINE_AVAILABLE',
+            consecutiveSkipCount: 0,
+          },
         });
 
         // ──────────────────────────────────────────────
@@ -165,8 +175,8 @@ export class RewardService {
 
         this.logger.log(
           `Successfully completed reward settlement for report ${payload.reportId}. ` +
-          `Citizen reward: ${finalReward} pts. Collector earnings: ${collectorEarnings}đ. ` +
-          `Collector trustScore: +${SUCCESS_TRUST_SCORE}`,
+            `Citizen reward: ${finalReward} pts. Collector earnings: ${collectorEarnings}đ. ` +
+            `Collector trustScore: +${SUCCESS_TRUST_SCORE}`,
         );
 
         // 8. [NON-BLOCKING] Notify Citizen về điểm thưởng (sau khi tx commit)

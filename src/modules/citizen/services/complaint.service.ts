@@ -6,12 +6,18 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../../libs/prisma/prisma.service';
 import { CreateComplaintDto } from '../dtos/create-complaint.dto';
+import { SupabaseService } from 'src/modules/supabase/services/supabase.service';
+
+import { NotificationService } from 'src/modules/notification/services/notification.service';
 
 @Injectable()
 export class ComplaintService {
-  constructor(private readonly prisma: PrismaService) {}
-
-  async createComplaint(citizenId: number, dto: CreateComplaintDto) {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supabaseService: SupabaseService,
+    private readonly notificationService: NotificationService,
+  ) { }
+  async createComplaint(citizenId: number, dto: CreateComplaintDto, files?: Express.Multer.File[]) {
     const report = await this.prisma.report.findUnique({
       where: { id: dto.reportId },
       include: { assignment: true },
@@ -27,25 +33,68 @@ export class ComplaintService {
       );
     }
 
-    // Chỉ cho phép khiếu nại khi báo cáo đã được xử lý (không còn PENDING)
-    if (report.status === 'PENDING') {
+    // Chỉ cho phép khiếu nại khi báo cáo đã hoàn thành hoặc bị hủy
+    const allowedStatuses = ['COMPLETED', 'CANCELLED'];
+    if (!allowedStatuses.includes(report.status)) {
       throw new BadRequestException(
-        'Báo cáo chưa được tiếp nhận, không thể gửi khiếu nại',
+        'Chỉ có thể khiếu nại sau khi đơn hàng đã hoàn tất hoặc bị hủy',
       );
     }
 
-    return await (this.prisma as any).complaint.create({
+    let uploadedImageUrls: string[] = [];
+    if (files && files.length > 0) {
+      uploadedImageUrls = await this.supabaseService.uploadImages(
+        files,
+        'complaints',
+      );
+    }
+
+    const complaint = await this.prisma.complaint.create({
       data: {
         reportId: dto.reportId,
         citizenId: citizenId,
         content: dto.content,
+        evidenceImages: uploadedImageUrls,
         status: 'OPEN',
       },
+      include: {
+        citizen: {
+          select: { fullName: true },
+        },
+      },
     });
+
+    // Notify Admins
+    setImmediate(async () => {
+      try {
+        const admins = await this.prisma.user.findMany({
+          where: { roleId: 4, deletedAt: null },
+          select: { id: true },
+        });
+
+        for (const admin of admins) {
+          await this.notificationService.createAndNotify({
+            userId: admin.id,
+            title: '📣 Có khiếu nại mới từ Citizen',
+            content: `Citizen ${complaint.citizen.fullName} vừa gửi một khiếu nại mới (Mã đơn: #${complaint.reportId})`,
+            type: 'SYSTEM',
+            meta: {
+              complaintId: complaint.id,
+              reportId: complaint.reportId,
+              type: 'NEW_COMPLAINT',
+            },
+          });
+        }
+      } catch (err) {
+        console.error('Failed to notify admins about new complaint:', err);
+      }
+    });
+
+    return complaint;
   }
 
   async getMyComplaints(citizenId: number) {
-    return await (this.prisma as any).complaint.findMany({
+    return await this.prisma.complaint.findMany({
       where: { citizenId },
       include: {
         report: {

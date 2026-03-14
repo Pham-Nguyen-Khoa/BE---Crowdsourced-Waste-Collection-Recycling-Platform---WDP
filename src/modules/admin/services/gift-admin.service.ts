@@ -1,19 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../libs/prisma/prisma.service';
 import { CreateGiftDto } from '../dtos/create-gift.dto';
-import {
-  successResponse,
-  errorResponse,
-} from 'src/common/utils/response.util';
+import { successResponse, errorResponse } from 'src/common/utils/response.util';
 
 @Injectable()
 export class GiftAdminService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   async createGift(dto: CreateGiftDto) {
     const gift = await this.prisma.gift.create({
-      data: dto,
+      data: {
+        name: dto.name,
+        description: dto.description,
+        requiredPoints: dto.requiredPoints,
+        stock: dto.stock,
+        imageUrl: dto.image ?? null,
+      },
     });
+
     return successResponse(200, gift, 'Tạo quà tặng mới thành công');
   }
 
@@ -62,13 +66,16 @@ export class GiftAdminService {
             email: true,
             phone: true,
             avatar: true,
-
           },
         },
         gift: true,
       },
       orderBy: { createdAt: 'desc' },
     });
-    return successResponse(200, transactions, 'Lấy lịch sử đổi quà thành công.');
+    return successResponse(
+      200,
+      transactions,
+      'Lấy lịch sử đổi quà thành công.',
+    );
   }
 }

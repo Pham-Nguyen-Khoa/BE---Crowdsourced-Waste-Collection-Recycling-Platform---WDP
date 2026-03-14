@@ -38,7 +38,7 @@ export class CollectorController {
     private readonly collectorService: CollectorService,
     private readonly statusService: UpdateCollectorStatusService,
     private readonly taskService: CollectorTaskService,
-  ) { }
+  ) {}
 
   @ApiOperation({ summary: 'Create a new collector (Enterprise only)' })
   @UseGuards(JWTGuard, EnterpriseRoleGuard)
@@ -161,8 +161,7 @@ export class CollectorController {
   }
 
   @ApiOperation({
-    summary:
-      'Báo cáo sự cố/Lừa đảo (khi Citizen chọn Có Mặt nhưng không đưa rác)',
+    summary: 'Báo cáo sự cố/Lừa đảo (khi Citizen không đưa rác)',
   })
   @ApiConsumes('multipart/form-data')
   @UseGuards(JWTGuard, CollectorRoleGuard)

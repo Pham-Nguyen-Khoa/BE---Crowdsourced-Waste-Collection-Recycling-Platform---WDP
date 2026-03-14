@@ -52,12 +52,37 @@ model User {
   pointTransactions PointTransaction[]
   reports           Report[]
   role              Role               @relation(fields: [roleId], references: [id])
+  points            UserPoint?
+  reportedFakes     ReportFakeLog[]    @relation("Violator")
+  madeFakeReports   ReportFakeLog[]    @relation("Reporter")
 
   @@index([email])
   @@index([phone])
   @@index([status])
   @@index([deletedAt])
 }
+
+model UserPoint {
+  userId    Int      @id
+  points    Int      @default(0)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model ReportFakeLog {
+  id          Int      @id @default(autoincrement())
+  reportId    Int
+  reporterId  Int
+  violatorId  Int
+  reason      String
+  images      String[] @default([])
+  createdAt   DateTime @default(now())
+  report      Report   @relation(fields: [reportId], references: [id])
+  reporter    User     @relation("Reporter", fields: [reporterId], references: [id])
+  violator    User     @relation("Violator", fields: [violatorId], references: [id])
+}
+
+
 
 model Enterprise {
   id                       Int                       @id @default(autoincrement())
@@ -275,6 +300,7 @@ model Report {
   assignment               ReportAssignment?
   reportEnterpriseAttempts ReportEnterpriseAttempt[]
   evaluation               ReportEvaluation?
+  reportFakeLogs           ReportFakeLog[]
   images                   ReportImage[]
   wasteItems               ReportWaste[]
 
@@ -378,16 +404,18 @@ model PointTransaction {
 }
 
 model Complaint {
-  id         Int             @id @default(autoincrement())
-  reportId   Int
-  citizenId  Int
-  content    String
-  status     ComplaintStatus @default(OPEN)
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt
-  resolvedAt DateTime?
-  citizen    User            @relation(fields: [citizenId], references: [id])
-  report     Report          @relation(fields: [reportId], references: [id])
+  id             Int             @id @default(autoincrement())
+  reportId       Int
+  citizenId      Int
+  content        String
+  evidenceImages String[]        @default([])
+  status         ComplaintStatus @default(OPEN)
+  adminResponse  String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  resolvedAt     DateTime?
+  citizen        User            @relation(fields: [citizenId], references: [id])
+  report         Report          @relation(fields: [reportId], references: [id])
 }
 
 model Notification {
@@ -520,7 +548,7 @@ enum SubscriptionPlan {
 
 enum ComplaintStatus {
   OPEN
-  RESOLVED
+  PROCESSED
   REJECTED
 }
 

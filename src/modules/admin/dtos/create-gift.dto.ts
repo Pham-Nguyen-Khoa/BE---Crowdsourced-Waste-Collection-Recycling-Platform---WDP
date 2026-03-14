@@ -25,12 +25,16 @@ export class CreateGiftDto {
   @IsNotEmpty()
   stock: number;
 
-  @ApiProperty({ example: 'https://example.com/voucher-image.png', required: false })
+  @ApiProperty({
+    example: 'https://example.com/voucher-image.png',
+    required: false,
+  })
   @IsString()
   @IsOptional()
   imageUrl?: string;
 
   @ApiProperty({ type: 'string', format: 'binary', required: false })
+  @IsString()
   @IsOptional()
   image?: any;
 }

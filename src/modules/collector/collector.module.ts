@@ -14,13 +14,14 @@ import { GetAllCollectorService } from './services/get-all-collector.service';
 import { GetCollectorDetailService } from './services/get-collector-detail.service';
 import { UpdateCollectorStatusService } from './services/update-status.service';
 import { SupabaseService } from '../supabase/services/supabase.service';
+import { MailerService } from '../auth/mail/mailer.service';
 
 const Services = [
   CollectorService,
   GetAllCollectorService,
   GetCollectorDetailService,
   UpdateCollectorStatusService,
-  SupabaseService
+  SupabaseService,
 ];
 
 @Module({
@@ -29,4 +30,4 @@ const Services = [
   providers: [...Services],
   exports: [...Services],
 })
-export class CollectorModule { }
+export class CollectorModule {}

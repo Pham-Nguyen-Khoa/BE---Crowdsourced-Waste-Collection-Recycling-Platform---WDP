@@ -12,7 +12,7 @@ export class UpdateCollectorStatusService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly geoService: GeoService,
-  ) { }
+  ) {}
 
   async updateStatus(collectorId: number, dto: UpdateStatusDto) {
     try {
@@ -32,7 +32,10 @@ export class UpdateCollectorStatusService {
       }
 
       if (collector.user.status !== 'ACTIVE' || collector.user.deletedAt) {
-        return errorResponse(400, 'Tài khoản của bạn đã bị khóa hoặc xóa. Không thể thay đổi trạng thái.');
+        return errorResponse(
+          400,
+          'Tài khoản của bạn đã bị khóa hoặc xóa. Không thể thay đổi trạng thái.',
+        );
       }
 
       // 2. Check Working Hours when going ONLINE
@@ -117,20 +120,15 @@ export class UpdateCollectorStatusService {
         `[UpdateStatus] Error for collector ${collectorId}:`,
         error,
       );
-      return errorResponse(
-        400,
-        error.message,
-
-      );
+      return errorResponse(400, error.message);
     }
   }
 
   private isWithinWorkingHours(workingHours: any): boolean {
-    if (!workingHours) return true; // Default to always available if no config
+    if (!workingHours) return true;
 
     const now = new Date();
-    // Adjust to Vietnam time (GMT+7) if the system is not already
-    // The instructions say "current local time is: 2026-03-08T23:33:35+07:00"
+
     const days = [
       'Sunday',
       'Monday',
@@ -140,6 +138,7 @@ export class UpdateCollectorStatusService {
       'Friday',
       'Saturday',
     ];
+
     const currentDay = days[now.getDay()];
     const config = workingHours[currentDay];
 
@@ -148,13 +147,16 @@ export class UpdateCollectorStatusService {
     const [startH, startM] = config.start.split(':').map(Number);
     const [endH, endM] = config.end.split(':').map(Number);
 
-    const currentH = now.getHours();
-    const currentM = now.getMinutes();
-
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const startMinutes = startH * 60 + startM;
     const endMinutes = endH * 60 + endM;
-    const currentMinutes = currentH * 60 + currentM;
 
-    return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+    // ca ban ngày
+    if (startMinutes <= endMinutes) {
+      return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+    }
+
+    // ca qua đêm
+    return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
   }
 }

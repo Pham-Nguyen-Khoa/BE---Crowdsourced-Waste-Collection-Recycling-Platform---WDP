@@ -1,5 +1,19 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFiles,
+} from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import { ComplaintService } from '../services/complaint.service';
 import { CreateComplaintDto } from '../dtos/create-complaint.dto';
 import { JWTGuard } from '../../auth/guards/jwt.guard';
@@ -16,11 +30,14 @@ export class ComplaintController {
 
   @Post(routesV1.citizen.createComplaint || '/citizen/complaints')
   @ApiOperation({ summary: 'Gửi khiếu nại về báo cáo/người thu gom' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FilesInterceptor('files'))
   async createComplaint(
     @GetUser() user: User,
     @Body() dto: CreateComplaintDto,
+    @UploadedFiles() files: Express.Multer.File[],
   ) {
-    return await this.complaintService.createComplaint(user.id, dto);
+    return await this.complaintService.createComplaint(user.id, dto, files);
   }
 
   @Get(routesV1.citizen.getMyComplaints || '/citizen/complaints')

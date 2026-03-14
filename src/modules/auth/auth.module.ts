@@ -56,6 +56,7 @@ const Services = [
   providers: [...Services, ...Repository],
   exports: [
     AuthRepository,
+    MailerService,
     JwtService,
     JWTGuard,
     OptionalJWTGuard,
