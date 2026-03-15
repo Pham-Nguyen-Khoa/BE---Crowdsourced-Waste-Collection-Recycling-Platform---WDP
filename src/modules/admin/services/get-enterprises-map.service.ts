@@ -91,7 +91,7 @@ export class GetEnterprisesMapService {
                         }
                     },
                     _count: {
-                        select: { 
+                        select: {
                             collectors: true,
                             reportAssignments: true
                         }
@@ -106,9 +106,9 @@ export class GetEnterprisesMapService {
             // Tính toán stats collector
             const onlineCollectors = enterprise.collectors.filter(c => {
                 const avail = c.status?.availability as string;
-                return avail === 'AVAILABLE' || avail === 'ON_TASK';
+                return avail === 'ONLINE_AVAILABLE' || avail === 'ONLINE_BUSY';
             }).length;
-            
+
             const offlineCollectors = enterprise.collectors.length - onlineCollectors;
 
             const activeSub = enterprise.subscriptions[0];
@@ -123,7 +123,7 @@ export class GetEnterprisesMapService {
                     longitude: Number(enterprise.longitude),
                     status: enterprise.status,
                     capacityKg: Number(enterprise.capacityKg),
-                    
+
                     // Thông tin liên hệ
                     contactEmail: enterprise.user.email,
                     contactPhone: enterprise.user.phone,
@@ -151,12 +151,12 @@ export class GetEnterprisesMapService {
                         offlineCollectors,
                         totalReports: enterprise._count?.reportAssignments || 0
                     },
-                    
+
                     // Giữ lại collectorCount cho FE cũ nếu cần
                     collectorCount: enterprise._count?.collectors || 0,
                 },
                 // FE đã call và gắn rồi nên giữ lại field nhưng xóa array cho nhẹ (hoặc trả rỗng như user muốn)
-                collectors: [], 
+                collectors: [],
             }, 'Lấy thông tin doanh nghiệp chi tiết thành công');
 
         } catch (error) {

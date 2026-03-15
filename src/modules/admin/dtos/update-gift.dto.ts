@@ -7,12 +7,22 @@ import {
   Min,
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
+import { GiftType } from '@prisma/client';
 
 export class UpdateGiftDto {
   @ApiProperty({ example: 'Voucher VinMart 100k', required: false })
   @IsString()
   @IsOptional()
   name?: string;
+
+  @ApiProperty({ 
+    enum: GiftType,
+    example: GiftType.SHOPPING,
+    required: false,
+    description: 'Phân loại quà tặng: FOOD, SHOPPING, OTHER' 
+  })
+  @IsOptional()
+  type?: GiftType;
 
   @ApiProperty({
     example: 'Dùng để mua hàng tại VinMart trên toàn quốc.',

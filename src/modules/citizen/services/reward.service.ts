@@ -11,7 +11,7 @@ export class RewardService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   /**
    * GIAI ĐOẠN 4: Settlement tài chính
@@ -49,27 +49,33 @@ export class RewardService {
           return;
         }
 
+        // 2. Fetch System Configuration
+        const config = await tx.systemConfig.findUnique({ where: { id: 1 } });
+        if (!config) {
+          throw new Error('System configuration not found');
+        }
+
         // ──────────────────────────────────────────────
-        // 2. Tính CITIZEN reward (theo từng loại rác)
+        // 3. Tính CITIZEN reward (theo từng loại rác)
         // ──────────────────────────────────────────────
         const accuracyMultipliers: Record<AccuracyBucket, number> = {
-          [AccuracyBucket.HEAVY]: 0.3,
-          [AccuracyBucket.MODERATE]: 0.7,
-          [AccuracyBucket.MATCH]: 1.0,
+          [AccuracyBucket.HEAVY]: config.accuracyHeavyMultiplier,
+          [AccuracyBucket.MODERATE]: config.accuracyModerateMultiplier,
+          [AccuracyBucket.MATCH]: config.accuracyMatchMultiplier,
         };
         const accuracyMultiplier =
           accuracyMultipliers[payload.accuracyBucket] ?? 1.0;
 
         const wasteTypeMultipliers: Record<string, number> = {
-          ORGANIC: 1.0,
-          RECYCLABLE: 1.2,
-          HAZARDOUS: 1.5,
+          ORGANIC: config.organicMultiplier,
+          RECYCLABLE: config.recyclableMultiplier,
+          HAZARDOUS: config.hazardousMultiplier,
         };
 
         // Tính reward từng loại rác rồi cộng lại
         let finalReward = 0;
         const rewardBreakdown: string[] = [];
-        const baseReward = 100; // Default when PointConfig is removed
+        const baseReward = config.citizenBasePoint;
 
         const vietnameseWasteTypes: Record<string, string> = {
           ORGANIC: 'RÁC HỮU CƠ',
@@ -94,11 +100,12 @@ export class RewardService {
           rewardBreakdown.push(`${label}: ${item.weight}kg = ${itemReward}pts`);
         }
 
-        // 3. Update Citizen UserPoint
-        const updatedUserPoint = await tx.userPoint.upsert({
-          where: { userId: payload.citizenId },
-          update: { points: { increment: finalReward } },
-          create: { userId: payload.citizenId, points: finalReward },
+        // 3. Update Citizen Reward (Update balance directamente trong bảng User)
+        const updatedUser = await tx.user.update({
+          where: { id: payload.citizenId },
+          data: {
+            balance: { increment: finalReward },
+          },
         });
 
         // 4. Insert PointTransaction (audit log with description)
@@ -110,16 +117,15 @@ export class RewardService {
             userId: payload.citizenId,
             type: PointTransactionType.EARN,
             amount: finalReward,
-            balanceAfter: updatedUserPoint.points,
+            balanceAfter: updatedUser.balance,
             description: `Bạn đã thu gom ${payload.totalActualWeight} kg rác. 
 Phần thưởng: ${rewardBreakdown.join(', ')}. 
 Đánh giá phân loại: ${accuracyLabel}.`,
           },
         });
 
-        // ──────────────────────────────────────────────
-        // 6. Tính COLLECTOR earnings + trustScore
-        // ──────────────────────────────────────────────
+        // 6. Tính COLLECTOR earnings (Tạm thời giữ logic cũ hoặc dùng config nếu có)
+        // Lưu ý: User đã yêu cầu xóa config collectorEarningPerKg nên dùng fix cứng 1000 ở đây nếu vẫn cần tính
         let collectorEarnings = 0;
         for (const item of payload.perTypeWeights) {
           const wasteTypeMultiplier =
@@ -128,13 +134,12 @@ Phần thưởng: ${rewardBreakdown.join(', ')}.
             item.weight * 1000 * wasteTypeMultiplier,
           );
         }
-        const SUCCESS_TRUST_SCORE = 2; // Điểm thưởng mặc định khi hoàn thành
 
         await tx.collector.update({
           where: { id: payload.collectorId },
           data: {
             earnings: { increment: collectorEarnings },
-            trustScore: { increment: SUCCESS_TRUST_SCORE },
+            trustScore: { increment: config.collectorMatchTrustScore },
           },
         });
 
@@ -175,8 +180,8 @@ Phần thưởng: ${rewardBreakdown.join(', ')}.
 
         this.logger.log(
           `Successfully completed reward settlement for report ${payload.reportId}. ` +
-            `Citizen reward: ${finalReward} pts. Collector earnings: ${collectorEarnings}đ. ` +
-            `Collector trustScore: +${SUCCESS_TRUST_SCORE}`,
+          `Citizen reward: ${finalReward} pts. Collector earnings: ${collectorEarnings}đ. ` +
+          `Collector trustScore: +${config.collectorMatchTrustScore}`,
         );
 
         // 8. [NON-BLOCKING] Notify Citizen về điểm thưởng (sau khi tx commit)

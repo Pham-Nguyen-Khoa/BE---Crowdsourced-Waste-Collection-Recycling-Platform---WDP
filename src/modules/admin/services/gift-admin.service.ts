@@ -2,19 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../libs/prisma/prisma.service';
 import { CreateGiftDto } from '../dtos/create-gift.dto';
 import { successResponse, errorResponse } from 'src/common/utils/response.util';
+import { UpdateGiftDto } from '../dtos/update-gift.dto';
 
 @Injectable()
 export class GiftAdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async createGift(dto: CreateGiftDto) {
     const gift = await this.prisma.gift.create({
       data: {
         name: dto.name,
+        type: dto.type,
         description: dto.description,
         requiredPoints: dto.requiredPoints,
         stock: dto.stock,
-        imageUrl: dto.image ?? null,
+        imageUrl: dto.imageUrl ?? null,
+        isActive: false
       },
     });
 
@@ -28,7 +31,7 @@ export class GiftAdminService {
     return successResponse(200, gifts, 'Lấy danh sách quà tặng thành công');
   }
 
-  async updateGift(giftId: number, dto: any) {
+  async updateGift(giftId: number, dto: UpdateGiftDto) {
     const gift = await this.prisma.gift.findUnique({ where: { id: giftId } });
     if (!gift) errorResponse(400, 'Không tìm thấy quà tặng');
 

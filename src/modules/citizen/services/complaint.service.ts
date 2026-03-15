@@ -1,14 +1,12 @@
-import {
-  Injectable,
-  NotFoundException,
-  ForbiddenException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../libs/prisma/prisma.service';
 import { CreateComplaintDto } from '../dtos/create-complaint.dto';
 import { SupabaseService } from 'src/modules/supabase/services/supabase.service';
-
 import { NotificationService } from 'src/modules/notification/services/notification.service';
+import {
+  successResponse,
+  errorResponse,
+} from 'src/common/utils/response.util';
 
 @Injectable()
 export class ComplaintService {
@@ -16,27 +14,31 @@ export class ComplaintService {
     private readonly prisma: PrismaService,
     private readonly supabaseService: SupabaseService,
     private readonly notificationService: NotificationService,
-  ) { }
-  async createComplaint(citizenId: number, dto: CreateComplaintDto, files?: Express.Multer.File[]) {
+  ) {}
+
+  async createComplaint(
+    citizenId: number,
+    dto: CreateComplaintDto,
+    files?: Express.Multer.File[],
+  ) {
     const report = await this.prisma.report.findUnique({
       where: { id: dto.reportId },
       include: { assignment: true },
     });
 
     if (!report) {
-      throw new NotFoundException('Không tìm thấy báo cáo');
+      return errorResponse(400, 'Không tìm thấy báo cáo');
     }
 
     if (report.citizenId !== citizenId) {
-      throw new ForbiddenException(
-        'Bạn không có quyền khiếu nại với báo cáo này',
-      );
+      return errorResponse(400, 'Bạn không có quyền khiếu nại với báo cáo này');
     }
 
     // Chỉ cho phép khiếu nại khi báo cáo đã hoàn thành hoặc bị hủy
     const allowedStatuses = ['COMPLETED', 'CANCELLED'];
     if (!allowedStatuses.includes(report.status)) {
-      throw new BadRequestException(
+      return errorResponse(
+        400,
         'Chỉ có thể khiếu nại sau khi đơn hàng đã hoàn tất hoặc bị hủy',
       );
     }
@@ -53,6 +55,7 @@ export class ComplaintService {
       data: {
         reportId: dto.reportId,
         citizenId: citizenId,
+        type: dto.type,
         content: dto.content,
         evidenceImages: uploadedImageUrls,
         status: 'OPEN',
@@ -90,19 +93,42 @@ export class ComplaintService {
       }
     });
 
-    return complaint;
+    return successResponse(200, complaint, 'Gửi khiếu nại thành công');
+  }
+
+  // Hàm helper để map ComplaintType sang Tiếng Việt
+  private getComplaintTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      ATTITUDE: 'Thái độ không tốt',
+      WEIGHT_MISMATCH: 'Sai cân nặng thực tế',
+      UNAUTHORIZED_FEE: 'Thu phí ngoài quy định',
+      NO_SHOW: 'Không đến thu gom',
+      OTHER: 'Khác',
+    };
+    return labels[type] || 'Khác';
   }
 
   async getMyComplaints(citizenId: number) {
-    return await this.prisma.complaint.findMany({
+    const complaints = await this.prisma.complaint.findMany({
       where: { citizenId },
-      include: {
+      select: {
+        id: true,
+        reportId: true,
+        content: true,
+        type: true,
+        status: true,
+        evidenceImages: true,
+        adminResponse: true,
+        createdAt: true,
+        resolvedAt: true,
         report: {
-          include: {
+          select: {
+            address: true,
+            status: true,
             assignment: {
-              include: {
+              select: {
                 collector: {
-                  include: {
+                  select: {
                     user: {
                       select: {
                         fullName: true,
@@ -117,5 +143,25 @@ export class ComplaintService {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    const formattedComplaints = complaints.map((c) => ({
+      id: c.id,
+      reportId: c.reportId,
+      content: c.content,
+      type: c.type,
+      typeLabel: this.getComplaintTypeLabel(c.type),
+      status: c.status,
+      evidenceImages: c.evidenceImages,
+      adminResponse: c.adminResponse,
+      createdAt: c.createdAt,
+      resolvedAt: c.resolvedAt,
+      reportInfo: {
+        address: c.report.address,
+        reportStatus: c.report.status,
+        collectorName: c.report.assignment?.collector?.user?.fullName || 'Chưa phân công',
+      },
+    }));
+
+    return successResponse(200, formattedComplaints, 'Lấy danh sách khiếu nại thành công');
   }
 }

@@ -27,15 +27,15 @@ export class LoyaltyService {
 
   async redeemGift(citizenId: number, dto: RedeemGiftDto) {
     return await this.prisma.$transaction(async (tx) => {
-      // 1. Fetch UserPoint and Gift
-      const userPoint = await tx.userPoint.findUnique({ where: { userId: citizenId } });
+      // 1. Fetch User and Gift
+      const user = await tx.user.findUnique({ where: { id: citizenId } });
       const gift = await tx.gift.findUnique({ where: { id: dto.giftId } });
 
       if (!gift || !gift.isActive) {
         throw new BadRequestException('Quà tặng không tồn tại hoặc đã bị khoá');
       }
 
-      const userPoints = userPoint?.points ?? 0;
+      const userPoints = user?.balance ?? 0;
       if (userPoints < gift.requiredPoints) {
         throw new BadRequestException(
           `Bạn không đủ điểm. Cần ${gift.requiredPoints} nhưng bạn chỉ có ${userPoints}`,
@@ -47,9 +47,9 @@ export class LoyaltyService {
       }
 
       // 3. Deduct points & update stock
-      const updatedUserPoint = await tx.userPoint.update({
-        where: { userId: citizenId },
-        data: { points: { decrement: gift.requiredPoints } },
+      const updatedUser = await tx.user.update({
+        where: { id: citizenId },
+        data: { balance: { decrement: gift.requiredPoints } },
       });
 
       await tx.gift.update({
@@ -64,7 +64,7 @@ export class LoyaltyService {
           giftId: dto.giftId,
           type: PointTransactionType.SPEND,
           amount: gift.requiredPoints,
-          balanceAfter: updatedUserPoint.points,
+          balanceAfter: updatedUser.balance,
           description: `Đổi quà: ${gift.name}`,
         },
         include: { gift: true },
@@ -111,14 +111,14 @@ export class LoyaltyService {
   }
 
   async getMyPoints(citizenId: number) {
-    const userPoint = await this.prisma.userPoint.findUnique({
-      where: { userId: citizenId },
-      select: { points: true },
+    const user = await this.prisma.user.findUnique({
+      where: { id: citizenId },
+      select: { balance: true },
     });
 
     return successResponse(
       200,
-      { points: userPoint?.points || 0 },
+      { points: user?.balance || 0 },
       'Lấy số điểm hiện tại thành công',
     );
   }

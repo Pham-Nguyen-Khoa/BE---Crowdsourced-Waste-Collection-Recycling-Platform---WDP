@@ -1,12 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty, IsNumber, IsString, IsOptional } from 'class-validator';
 import { Type } from 'class-transformer';
+import { GiftType } from '@prisma/client';
 
 export class CreateGiftDto {
   @ApiProperty({ example: 'Voucher VinMart 50k' })
   @IsString()
   @IsNotEmpty()
   name: string;
+
+  @ApiProperty({
+    enum: GiftType,
+    example: GiftType.SHOPPING,
+    description: 'Phân loại quà tặng: FOOD, SHOPPING, OTHER'
+  })
+  @IsNotEmpty()
+  type: GiftType;
 
   @ApiProperty({ example: 'Dùng để mua hàng tại VinMart trên toàn quốc.' })
   @IsString()

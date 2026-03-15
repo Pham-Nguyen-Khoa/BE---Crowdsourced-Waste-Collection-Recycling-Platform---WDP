@@ -52,7 +52,6 @@ model User {
   pointTransactions PointTransaction[]
   reports           Report[]
   role              Role               @relation(fields: [roleId], references: [id])
-  points            UserPoint?
   reportedFakes     ReportFakeLog[]    @relation("Violator")
   madeFakeReports   ReportFakeLog[]    @relation("Reporter")
 
@@ -60,13 +59,6 @@ model User {
   @@index([phone])
   @@index([status])
   @@index([deletedAt])
-}
-
-model UserPoint {
-  userId    Int      @id
-  points    Int      @default(0)
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id])
 }
 
 model ReportFakeLog {
@@ -408,6 +400,7 @@ model Complaint {
   reportId       Int
   citizenId      Int
   content        String
+  type           ComplaintType   @default(OTHER)
   evidenceImages String[]        @default([])
   status         ComplaintStatus @default(OPEN)
   adminResponse  String?
@@ -473,6 +466,7 @@ model DispatchLog {
 model Gift {
   id                Int                @id @default(autoincrement())
   name              String             @db.VarChar(255)
+  type              GiftType           @default(SHOPPING)
   description       String?
   requiredPoints    Int
   stock             Int                @default(0)
@@ -481,6 +475,12 @@ model Gift {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
   pointTransactions PointTransaction[]
+}
+
+enum GiftType {
+  FOOD          // Voucher ăn uống (Starbucks, Phúc Long...)
+  SHOPPING      // Voucher siêu thị, mua sắm (Coopmart, Shopee...)
+  OTHER         // Quà tặng khác
 }
 
 enum UserRole {
@@ -552,6 +552,14 @@ enum ComplaintStatus {
   REJECTED
 }
 
+enum ComplaintType {
+  ATTITUDE
+  WEIGHT_MISMATCH
+  UNAUTHORIZED_FEE
+  NO_SHOW
+  OTHER
+}
+
 enum NotificationType {
   REPORT_ASSIGNED
   REPORT_STATUS_CHANGED
@@ -595,5 +603,29 @@ enum AttemptStatus {
 enum PointTransactionType {
   EARN
   SPEND
-  REFUND
+  COMPENSATION
+}
+
+model SystemConfig {
+  id                            Int      @id @default(1)
+  // Cấu hình điểm Citizen
+  citizenBasePoint             Int      @default(100)
+  organicMultiplier            Float    @default(1.0)
+  recyclableMultiplier         Float    @default(1.2)
+  hazardousMultiplier          Float    @default(1.5)
+  // Hệ số độ chính xác
+  accuracyMatchMultiplier      Float    @default(1.0)
+  accuracyModerateMultiplier   Float    @default(0.7)
+  accuracyHeavyMultiplier      Float    @default(0.3)
+  // Cấu hình thu nhập Collector
+  collectorMatchTrustScore     Int      @default(2)
+  // Các mức phạt Collector (Trust Score)
+  penaltyWeightMismatch        Int      @default(20)
+  penaltyUnauthorizedFee       Int      @default(30)
+  penaltyNoShow                Int      @default(15)
+  penaltyDefault               Int      @default(10)
+  // Bồi thường cho Citizen khi khiếu nại đúng
+  citizenCompensation          Int      @default(50)
+
+  updatedAt                    DateTime @updatedAt
 }

@@ -35,7 +35,7 @@ export class GiftController {
   constructor(
     private readonly giftService: GiftAdminService,
     private readonly supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   @Post()
   @ApiOperation({ summary: 'Tạo quà tặng mới' })
@@ -46,19 +46,26 @@ export class GiftController {
       type: 'object',
       properties: {
         name: { type: 'string', example: 'Voucher VinMart 50k' },
+        type: {
+          type: 'string',
+          enum: ['FOOD', 'SHOPPING', 'OTHER'],
+          example: 'SHOPPING',
+          description: 'Phân loại quà tặng'
+        },
+        requiredPoints: { type: 'number', example: 500 },
+        stock: { type: 'number', example: 100 },
+
         description: {
           type: 'string',
           example: 'Dùng để mua hàng tại VinMart',
         },
-        requiredPoints: { type: 'number', example: 500 },
-        stock: { type: 'number', example: 100 },
         image: {
           type: 'string',
           format: 'binary',
           description: 'Ảnh quà tặng',
         },
       },
-      required: ['name', 'requiredPoints', 'stock'],
+      required: ['name', 'type', 'requiredPoints', 'stock'],
     },
   })
   async createGift(
@@ -96,6 +103,11 @@ export class GiftController {
         description: { type: 'string' },
         requiredPoints: { type: 'number' },
         stock: { type: 'number' },
+        type: {
+          type: 'string',
+          enum: ['FOOD', 'SHOPPING', 'OTHER'],
+          example: 'SHOPPING'
+        },
         isActive: { type: 'boolean' },
         image: {
           type: 'string',

@@ -51,7 +51,24 @@ export class GetDetailReportService {
       return errorResponse(403, 'Bạn không có quyền xem đơn này');
     }
 
-    // 4. Format response
+    // 4. Lấy chi tiết các giao dịch điểm của đơn này
+    const pointTransactions = await this.prisma.pointTransaction.findMany({
+      where: {
+        reportId: report.id,
+        userId: userId,
+        type: { in: ['EARN', 'COMPENSATION'] as any },
+      },
+      select: { 
+        amount: true,
+        description: true,
+        createdAt: true
+      },
+      orderBy: { createdAt: 'asc' }
+    });
+
+    const earnedPoints = pointTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+    // 5. Format response
     const response = {
       id: report.id,
       status: report.status,
@@ -66,6 +83,8 @@ export class GetDetailReportService {
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
       cancelReason: report.cancelReason,
+      earnedPoints: earnedPoints,
+      pointHistory: pointTransactions, // Trả về danh sách chi tiết các lần cộng điểm
       wasteItems: report.wasteItems.map((w) => ({
         wasteType: w.wasteType,
         weightKg: Number(w.weightKg),

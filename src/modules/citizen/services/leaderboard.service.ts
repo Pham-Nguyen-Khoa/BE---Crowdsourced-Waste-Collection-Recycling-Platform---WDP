@@ -27,7 +27,7 @@ interface RankingRecord {
 export class LeaderboardService {
   private readonly logger = new Logger(LeaderboardService.name);
 
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async getLeaderboard(userId: number, query: any) {
     const { category = LeaderboardCategory.POINTS, timeframe = LeaderboardTimeframe.ALL_TIME } = query;
@@ -80,32 +80,28 @@ export class LeaderboardService {
 
   private async getTopPoints(timeframe: LeaderboardTimeframe, dateFilter: any): Promise<RankingRecord[]> {
     if (timeframe === LeaderboardTimeframe.ALL_TIME) {
-      return this.prisma.userPoint.findMany({
-        where: { user: { roleId: 1, deletedAt: null } },
+      return this.prisma.user.findMany({
+        where: { roleId: 1, deletedAt: null },
         select: {
-          points: true,
-          user: {
-            select: {
-              id: true,
-              fullName: true,
-              avatar: true,
-            }
-          }
+          id: true,
+          fullName: true,
+          avatar: true,
+          balance: true,
         },
-        orderBy: { points: 'desc' },
+        orderBy: { balance: 'desc' },
         take: 50,
-      }).then(pointsRows => pointsRows.map((u, index) => ({
+      }).then(users => users.map((u, index) => ({
         rank: index + 1,
-        userId: u.user.id,
-        fullName: u.user.fullName,
-        avatar: u.user.avatar,
-        value: u.points,
+        userId: u.id,
+        fullName: u.fullName,
+        avatar: u.avatar,
+        value: u.balance,
       })));
     } else {
       const aggregations = await this.prisma.pointTransaction.groupBy({
         by: ['userId'],
         where: {
-          type: 'EARN',
+          type: { in: ['EARN', 'COMPENSATION'] as any },
           createdAt: dateFilter,
           user: { roleId: 1, deletedAt: null },
         },
@@ -206,26 +202,26 @@ export class LeaderboardService {
     try {
       if (category === LeaderboardCategory.POINTS) {
         if (timeframe === LeaderboardTimeframe.ALL_TIME) {
-          const userPoint = await this.prisma.userPoint.findUnique({ 
-            where: { userId: userId }, 
-            select: { points: true } 
+          const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { balance: true }
           });
-          myValue = userPoint?.points || 0;
-          rank = await this.prisma.userPoint.count({ 
-            where: { user: { roleId: 1, deletedAt: null }, points: { gt: myValue } } 
+          myValue = user?.balance || 0;
+          rank = await this.prisma.user.count({
+            where: { roleId: 1, deletedAt: null, balance: { gt: myValue } }
           }) + 1;
         } else {
           const agg = await this.prisma.pointTransaction.aggregate({
-            where: { userId, type: 'EARN', createdAt: dateFilter },
+            where: { userId, type: { in: ['EARN', 'COMPENSATION'] as any }, createdAt: dateFilter },
             _sum: { amount: true }
           });
           myValue = agg._sum.amount || 0;
-          
+
           const higherUsers = await this.prisma.$queryRaw`
             SELECT COUNT(*) as count FROM (
               SELECT "userId", SUM(amount) as total 
               FROM "PointTransaction" 
-              WHERE type = 'EARN' AND "createdAt" >= ${dateFilter.gte}
+              WHERE (type = 'EARN' OR type = 'COMPENSATION') AND "createdAt" >= ${dateFilter.gte}
               GROUP BY "userId"
               HAVING SUM(amount) > ${myValue}
             ) as subquery
@@ -234,11 +230,11 @@ export class LeaderboardService {
         }
       } else if (category === LeaderboardCategory.ECO_WARRIORS) {
         const citizenId = userId;
-        const myCount = await this.prisma.report.count({ 
-          where: { citizenId, status: 'COMPLETED', ...(dateFilter && { completedAt: dateFilter }) } 
+        const myCount = await this.prisma.report.count({
+          where: { citizenId, status: 'COMPLETED', ...(dateFilter && { completedAt: dateFilter }) }
         });
         myValue = myCount;
-        
+
         const higherUsers = await this.prisma.$queryRaw`
           SELECT COUNT(*) as count FROM (
             SELECT "citizenId", COUNT(*) as total 
@@ -269,9 +265,9 @@ export class LeaderboardService {
         rank = Number((higherUsers as any)[0].count) + 1;
       }
 
-      const user = await this.prisma.user.findUnique({ 
-        where: { id: userId }, 
-        select: { fullName: true, avatar: true } 
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { fullName: true, avatar: true }
       });
 
       if (!user) return null;
