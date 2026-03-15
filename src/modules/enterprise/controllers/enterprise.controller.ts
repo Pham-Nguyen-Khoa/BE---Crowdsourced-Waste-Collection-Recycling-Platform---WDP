@@ -117,4 +117,13 @@ export class EnterpriseController {
   async updateProfile(@GetUser() user: User, @Body() dto: UpdateEnterpriseDto) {
     return await this.enterpriseService.updateEnterprise(user.id, dto);
   }
+
+  @ApiOperation({ summary: 'Lấy các đơn hàng đã bị hủy' })
+  @ApiBearerAuth()
+  @UseGuards(JWTGuard, RolesGuard)
+  @Roles(2)
+  @Get(routesV1.enterprise.getCancelledReports)
+  async getCancelledReports(@GetUser() user: User) {
+    return await this.enterpriseService.getCancelledReports(user.id);
+  }
 }

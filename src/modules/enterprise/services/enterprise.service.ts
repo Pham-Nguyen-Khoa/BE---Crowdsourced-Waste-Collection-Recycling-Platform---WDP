@@ -1001,4 +1001,112 @@ export class EnterpriseService {
 
         return successResponse(200, result);
     }
+
+    async getCancelledReports(userId: number) {
+        const enterprise = await this.prisma.enterprise.findFirst({
+            where: { userId, deletedAt: null },
+            select: { id: true }
+        });
+
+        if (!enterprise) {
+            return errorResponse(400, 'Bạn không có quyền truy cập doanh nghiệp');
+        }
+
+        const enterpriseId = enterprise.id;
+
+        // 1. Lấy các đơn hàng đã ACCEPTED nhưng sau đó bị CANCELLED
+        const acceptedAndCancelled = await this.prisma.reportAssignment.findMany({
+            where: {
+                enterpriseId,
+                report: {
+                    status: 'CANCELLED'
+                }
+            },
+            include: {
+                report: {
+                    include: {
+                        wasteItems: true,
+                        images: true,
+                        reportFakeLogs: {
+                            include: {
+                                reporter: { select: { fullName: true } }
+                            }
+                        },
+                        citizen: {
+                            select: { fullName: true, phone: true }
+                        }
+                    }
+                }
+            },
+            orderBy: { assignedAt: 'desc' }
+        });
+
+        // 2. Lấy các đơn hàng chưa ACCEPTED (đang WAITING) nhưng Citizen đã CANCELLED đơn đó
+        const waitingAndCancelled = await this.prisma.reportEnterpriseAttempt.findMany({
+            where: {
+                enterpriseId,
+                status: 'CANCELLED',
+                report: {
+                    status: 'CANCELLED'
+                }
+            },
+            include: {
+                report: {
+                    include: {
+                        wasteItems: true,
+                        images: true,
+                        reportFakeLogs: {
+                            include: {
+                                reporter: { select: { fullName: true } }
+                            }
+                        },
+                        citizen: {
+                            select: { fullName: true, phone: true }
+                        }
+                    }
+                }
+            },
+            orderBy: { sentAt: 'desc' }
+        });
+
+        // Format và gộp dữ liệu
+        const reports = [
+            ...acceptedAndCancelled.map(a => {
+                const hasFakeLogs = a.report.reportFakeLogs.length > 0;
+                return {
+                    ...a.report,
+                    type: 'WAS_ACCEPTED',
+                    cancelledAt: a.report.updatedAt,
+                    cancelBy: hasFakeLogs ? 'COLLECTOR' : 'CITIZEN',
+                    cancelDetails: {
+                        reason: a.report.cancelReason,
+                        collectorLogs: a.report.reportFakeLogs.map(log => ({
+                            reason: log.reason,
+                            images: log.images,
+                            reporter: log.reporter.fullName
+                        }))
+                    }
+                };
+            }),
+            ...waitingAndCancelled.map(w => {
+                const hasFakeLogs = w.report.reportFakeLogs.length > 0;
+                return {
+                    ...w.report,
+                    type: 'WAS_WAITING',
+                    cancelledAt: w.report.updatedAt,
+                    cancelBy: hasFakeLogs ? 'COLLECTOR' : 'CITIZEN',
+                    cancelDetails: {
+                        reason: w.report.cancelReason,
+                        collectorLogs: w.report.reportFakeLogs.map(log => ({
+                            reason: log.reason,
+                            images: log.images,
+                            reporter: log.reporter.fullName
+                        }))
+                    }
+                };
+            })
+        ].sort((a, b) => b.cancelledAt.getTime() - a.cancelledAt.getTime());
+
+        return successResponse(200, reports, 'Lấy danh sách đơn hàng đã hủy thành công');
+    }
 }

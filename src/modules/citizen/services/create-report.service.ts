@@ -8,6 +8,7 @@ import { CreateReportResponseDto } from '../dtos/create-report-response.dto';
 import { SupabaseService } from 'src/modules/supabase/services/supabase.service';
 import { CancelReportDto } from '../dtos/cancel-report.dto';
 import { successResponse, errorResponse } from 'src/common/utils/response.util';
+import { CollectorTaskStatus } from '@prisma/client';
 
 @Injectable()
 export class CreateReportService {
@@ -181,14 +182,7 @@ export class CreateReportService {
    */
   private async rollbackAcceptedReport(report: any, cancelReason?: string) {
     await this.prisma.$transaction(async (tx) => {
-      // 1. Xóa assignment
-      if (report.assignment) {
-        await tx.reportAssignment.delete({
-          where: { id: report.assignment.id },
-        });
-      }
-
-      // 2. Cập nhật tất cả attempts của report này
+      // 1. Cập nhật tất cả attempts của report này
       await tx.reportEnterpriseAttempt.updateMany({
         where: { reportId: report.id },
         data: {
@@ -197,19 +191,27 @@ export class CreateReportService {
         },
       });
 
-      // 3. Cập nhật report về CANCELLED
+      // 2. Cập nhật report về CANCELLED
       await tx.report.update({
         where: { id: report.id },
         data: {
           deletedAt: new Date(),
           status: 'CANCELLED',
-          currentEnterpriseId: null,
+          // currentEnterpriseId: null, // GIỮ LẠI ĐỂ DOANH NGHIỆP THẤY TRONG LỊCH SỬ
           cancelReason,
         },
       });
 
-      // 4. Trừ điểm của citizen (nếu cần)
-      // TODO: Quyết định có trừ điểm không khi hủy
+      // 3. Xóa Task Attempt của Collector nếu có
+      await tx.collectorTaskAttempt.updateMany({
+        where: { 
+            reportId: report.id,
+            status: CollectorTaskStatus.PENDING_COLLECTOR 
+        },
+        data: {
+            status: CollectorTaskStatus.CANCELLED
+        }
+      });
     });
   }
 }

@@ -5,6 +5,7 @@ import {
   Body,
   Param,
   Patch,
+  Delete,
   UseGuards,
   UseInterceptors,
   UploadedFile,
@@ -72,11 +73,12 @@ export class GiftController {
     @Body() dto: CreateGiftDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    let imageUrl = dto.imageUrl;
     if (file) {
       const urls = await this.supabaseService.uploadImages([file], 'gifts');
-      dto.image = urls[0];
+      imageUrl = urls[0];
     }
-    return await this.giftService.createGift(dto);
+    return await this.giftService.createGift(dto, imageUrl);
   }
 
   @Get()
@@ -88,7 +90,7 @@ export class GiftController {
   @Patch(':id/active')
   @ApiOperation({ summary: 'Bật/Tắt quà tặng' })
   async toggleActive(@Param('id') id: string) {
-    return await this.giftService.deleteGift(+id);
+    return await this.giftService.toggleActive(+id);
   }
 
   @Patch(':id')
@@ -122,11 +124,18 @@ export class GiftController {
     @Body() dto: UpdateGiftDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    let imageUrl = dto.imageUrl;
     if (file) {
       const urls = await this.supabaseService.uploadImages([file], 'gifts');
-      dto.imageUrl = urls[0];
+      imageUrl = urls[0];
     }
-    return await this.giftService.updateGift(+id, dto);
+    return await this.giftService.updateGift(+id, dto, imageUrl);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Xóa quà tặng (Xóa mềm)' })
+  async softDeleteGift(@Param('id') id: string) {
+    return await this.giftService.softDeleteGift(+id);
   }
 
   @Get('transactions')

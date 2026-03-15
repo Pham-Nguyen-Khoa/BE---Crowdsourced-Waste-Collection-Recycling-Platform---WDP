@@ -8,7 +8,9 @@ import { UpdateGiftDto } from '../dtos/update-gift.dto';
 export class GiftAdminService {
   constructor(private readonly prisma: PrismaService) { }
 
-  async createGift(dto: CreateGiftDto) {
+  async createGift(dto: CreateGiftDto, uploadedImageUrl?: string) {
+    const finalImageUrl = uploadedImageUrl || dto.imageUrl || null;
+
     const gift = await this.prisma.gift.create({
       data: {
         name: dto.name,
@@ -16,7 +18,7 @@ export class GiftAdminService {
         description: dto.description,
         requiredPoints: dto.requiredPoints,
         stock: dto.stock,
-        imageUrl: dto.imageUrl ?? null,
+        imageUrl: finalImageUrl,
         isActive: false
       },
     });
@@ -26,25 +28,36 @@ export class GiftAdminService {
 
   async getAllGifts() {
     const gifts = await this.prisma.gift.findMany({
+      where: { deletedAt: null },
       orderBy: { createdAt: 'desc' },
     });
     return successResponse(200, gifts, 'Lấy danh sách quà tặng thành công');
   }
 
-  async updateGift(giftId: number, dto: UpdateGiftDto) {
-    const gift = await this.prisma.gift.findUnique({ where: { id: giftId } });
-    if (!gift) errorResponse(400, 'Không tìm thấy quà tặng');
+  async updateGift(giftId: number, dto: UpdateGiftDto, uploadedImageUrl?: string) {
+    const gift = await this.prisma.gift.findFirst({
+      where: { id: giftId, deletedAt: null }
+    });
+    if (!gift) return errorResponse(400, 'Không tìm thấy quà tặng');
+
+    const { image, imageUrl, ...updateData } = dto as any;
+    const finalImageUrl = uploadedImageUrl || imageUrl || gift.imageUrl;
 
     const updated = await this.prisma.gift.update({
       where: { id: giftId },
-      data: dto,
+      data: {
+        ...updateData,
+        imageUrl: finalImageUrl
+      },
     });
     return successResponse(200, updated, 'Cập nhật quà tặng thành công');
   }
 
-  async deleteGift(giftId: number) {
-    const gift = await this.prisma.gift.findUnique({ where: { id: giftId } });
-    if (!gift) errorResponse(400, 'Không tìm thấy quà tặng');
+  async toggleActive(giftId: number) {
+    const gift = await this.prisma.gift.findFirst({
+      where: { id: giftId, deletedAt: null }
+    });
+    if (!gift) return errorResponse(400, 'Không tìm thấy quà tặng');
 
     const updated = await this.prisma.gift.update({
       where: { id: giftId },
@@ -55,6 +68,22 @@ export class GiftAdminService {
       updated,
       updated.isActive ? 'Đã mở khóa quà tặng' : 'Đã khóa quà tặng',
     );
+  }
+
+  async softDeleteGift(giftId: number) {
+    const gift = await this.prisma.gift.findFirst({
+      where: { id: giftId, deletedAt: null }
+    });
+    if (!gift) return errorResponse(400, 'Không tìm thấy quà tặng');
+
+    await this.prisma.gift.update({
+      where: { id: giftId },
+      data: {
+        deletedAt: new Date(),
+        isActive: false
+      },
+    });
+    return successResponse(200, null, 'Đã xóa quà tặng thành công');
   }
 
   async getAllRedemptions() {

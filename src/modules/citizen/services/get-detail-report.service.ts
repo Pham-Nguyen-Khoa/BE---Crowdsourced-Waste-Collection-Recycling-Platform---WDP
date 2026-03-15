@@ -58,7 +58,7 @@ export class GetDetailReportService {
         userId: userId,
         type: { in: ['EARN', 'COMPENSATION'] as any },
       },
-      select: { 
+      select: {
         amount: true,
         description: true,
         createdAt: true
@@ -83,6 +83,7 @@ export class GetDetailReportService {
       createdAt: report.createdAt,
       updatedAt: report.updatedAt,
       cancelReason: report.cancelReason,
+      evidenceImages: report.evidenceImages,
       earnedPoints: earnedPoints,
       pointHistory: pointTransactions, // Trả về danh sách chi tiết các lần cộng điểm
       wasteItems: report.wasteItems.map((w) => ({

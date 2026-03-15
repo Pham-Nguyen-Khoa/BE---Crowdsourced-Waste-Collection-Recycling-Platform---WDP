@@ -4,7 +4,7 @@ import { PrismaService } from 'src/libs/prisma/prisma.service';
 import { JWTGuard } from 'src/modules/auth/guards/jwt.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/guards/roles.decorator';
-import { successResponse } from 'src/common/utils/response.util';
+import { errorResponse, successResponse } from 'src/common/utils/response.util';
 import { routesV1 } from 'src/configs/app.routes';
 
 @ApiTags('Admin - Violations')
@@ -13,7 +13,7 @@ import { routesV1 } from 'src/configs/app.routes';
 @Roles(4)
 @ApiBearerAuth()
 export class AdminViolationsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   @Get('fake-reports')
   @ApiOperation({ summary: 'Xem danh sách user vi phạm reportFake' })
@@ -31,6 +31,7 @@ export class AdminViolationsController {
         id: true,
         fullName: true,
         email: true,
+        avatar: true,
         _count: {
           select: {
             reportedFakes: true,
@@ -61,6 +62,7 @@ export class AdminViolationsController {
           userId: v.id,
           fullName: v.fullName,
           email: v.email,
+          avatar: v.avatar,
           violationCount: v._count.reportedFakes,
         })),
         meta: { total, page: +page, limit: +limit },
@@ -85,8 +87,31 @@ export class AdminViolationsController {
           select: {
             fullName: true,
             email: true,
+            avatar: true,
+            role: { select: { name: true } },
+            collector: {
+              select: {
+                employeeCode: true,
+                enterprise: { select: { name: true } }
+              }
+            }
           },
         },
+        violator: {
+          select: {
+            fullName: true,
+            email: true,
+            avatar: true,
+            role: { select: { name: true } },
+            collector: {
+              select: {
+                employeeCode: true,
+                enterprise: { select: { name: true } }
+              }
+            },
+            enterprise: { select: { name: true } }
+          }
+        }
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -96,7 +121,21 @@ export class AdminViolationsController {
       timestamp: log.createdAt,
       collectorReason: log.reason,
       collectorEvidence: log.images,
-      reporter: log.reporter,
+      reporter: {
+        fullName: log.reporter.fullName,
+        email: log.reporter.email,
+        avatar: log.reporter.avatar,
+        role: log.reporter.role.name,
+        employeeCode: log.reporter.collector?.employeeCode,
+        enterpriseName: log.reporter.collector?.enterprise?.name || 'N/A'
+      },
+      violator: {
+        fullName: log.violator.fullName,
+        email: log.violator.email,
+        avatar: log.violator.avatar,
+        role: log.violator.role.name,
+        enterpriseName: log.violator.enterprise?.name || log.violator.collector?.enterprise?.name || 'Cá nhân'
+      },
       originalReport: {
         id: log.report.id,
         address: log.report.address,
@@ -115,5 +154,32 @@ export class AdminViolationsController {
       formattedLogs,
       'Lấy chi tiết vi phạm thành công',
     );
+  }
+
+  @ApiOperation({ summary: 'Khóa tài khoản user vi phạm' })
+  @Get('ban/:userId')
+  async banUser(@Param('userId') userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: +userId },
+      include: { role: true }
+    });
+
+    if (!user) {
+      return errorResponse(404, 'Không tìm thấy người dùng');
+    }
+
+    if (user.roleId === 4) {
+      return errorResponse(400, 'Không thể khóa tài khoản quản trị viên');
+    }
+
+    if (user.status === 'BANNED') {
+      return errorResponse(400, 'Tài khoản này đã bị khóa từ trước');
+    }
+
+    await this.prisma.user.update({
+      where: { id: +userId },
+      data: { status: 'BANNED' }
+    });
+    return successResponse(200, null, `Đã khóa tài khoản ${user.fullName} thành công`);
   }
 }

@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsNotEmpty, IsNumber, Min, IsString, IsOptional } from 'class-validator';
 
 export class CancelReportDto {
   // @ApiProperty({ example: 1, description: 'ID của report cần hủy' })
@@ -12,6 +12,8 @@ export class CancelReportDto {
     example: 'Tôi không có nhu cầu nữa',
     description: 'Lý do hủy',
   })
+  @IsString()
+  @IsOptional()
   cancelReason?: string;
 }
 

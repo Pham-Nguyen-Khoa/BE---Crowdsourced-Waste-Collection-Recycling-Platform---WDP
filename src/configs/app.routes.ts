@@ -69,6 +69,7 @@ export const routesV1 = {
     rejectedReport: `${enterprise}/reports/:reportId/reject`,
     waiting: `${enterprise}/reports/waiting`,
     getAcceptedReports: `${enterprise}/reports/accepted`,
+    getCancelledReports: `${enterprise}/reports/cancelled`,
     getDetailWaiting: `${enterprise}/reports/waiting/:id`,
 
     // Collector management
@@ -107,6 +108,7 @@ export const routesV1 = {
     getGifts: `${citizen}/gifts`,
     redeemGift: `${citizen}/gifts/redeem`,
     getMyRedemptions: `${citizen}/gifts/redemptions`,
+    getMyGifts: `${citizen}/gifts/my-gifts`,
     getMyPoints: `${citizen}/loyalty/points`,
     getLeaderboard: `${citizen}/leaderboard`,
   },

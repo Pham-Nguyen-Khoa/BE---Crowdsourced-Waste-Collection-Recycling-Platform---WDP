@@ -104,10 +104,83 @@ export class LoyaltyService {
 
     const transactions = await this.prisma.pointTransaction.findMany({
       where,
-      include: { gift: true },
+      include: {
+        gift: true,
+        report: {
+          include: {
+            actualWasteItems: true,
+          }
+        }
+      },
       orderBy: { createdAt: 'desc' },
     });
-    return successResponse(200, transactions, 'Lấy lịch sử giao dịch điểm thành công');
+
+    // 1. Lấy config hệ thống để tính breakdown
+    const config = await this.prisma.systemConfig.findUnique({ where: { id: 1 } });
+    const baseReward = config?.citizenBasePoint || 100;
+
+    const accuracyMultipliers: any = {
+      HEAVY: config?.accuracyHeavyMultiplier || 0.3,
+      MODERATE: config?.accuracyModerateMultiplier || 0.7,
+      MATCH: config?.accuracyMatchMultiplier || 1.0,
+    };
+
+    const wasteTypeMultipliers: any = {
+      ORGANIC: config?.organicMultiplier || 1.0,
+      RECYCLABLE: config?.recyclableMultiplier || 1.2,
+      HAZARDOUS: config?.hazardousMultiplier || 1.5,
+    };
+
+    // 2. Map dữ liệu để thêm breakdown
+    const enrichedTransactions = transactions.map(tx => {
+      let breakdown: any = null;
+
+      if (tx.type === PointTransactionType.EARN && tx.report) {
+        const accuracyMultiplier = accuracyMultipliers[tx.report.accuracyBucket || 'MATCH'] || 1.0;
+        
+        const calculation = tx.report.actualWasteItems.map(item => {
+          const wasteMultiplier = wasteTypeMultipliers[item.wasteType] || 1.0;
+          const roundedPoints = Math.round(
+            baseReward * Number(item.weightKg) * accuracyMultiplier * wasteMultiplier
+          );
+
+          return {
+            wasteType: item.wasteType,
+            weightKg: item.weightKg,
+            basePoints: baseReward,
+            accuracyMultiplier,
+            wasteMultiplier,
+            pointsEarned: roundedPoints
+          };
+        });
+
+        breakdown = {
+          source: 'REPORT',
+          reportId: tx.reportId,
+          accuracyBucket: tx.report.accuracyBucket,
+          accuracyMultiplier,
+          items: calculation
+        };
+      } else if (tx.type === PointTransactionType.SPEND && tx.gift) {
+        breakdown = {
+          source: 'GIFT_REDEEM',
+          gift: {
+            id: tx.gift.id,
+            name: tx.gift.name,
+            type: tx.gift.type,
+            imageUrl: tx.gift.imageUrl,
+            requiredPoints: tx.gift.requiredPoints
+          }
+        };
+      }
+
+      return {
+        ...tx,
+        breakdown
+      };
+    });
+
+    return successResponse(200, enrichedTransactions, 'Lấy lịch sử giao dịch điểm thành công');
   }
 
   async getMyPoints(citizenId: number) {
@@ -121,5 +194,19 @@ export class LoyaltyService {
       { points: user?.balance || 0 },
       'Lấy số điểm hiện tại thành công',
     );
+  }
+
+  async getMyGifts(citizenId: number) {
+    const gifts = await this.prisma.pointTransaction.findMany({
+      where: {
+        userId: citizenId,
+        type: PointTransactionType.SPEND,
+        giftId: { not: null }
+      },
+      include: { gift: true },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return successResponse(200, gifts, 'Lấy danh sách quà đã đổi thành công');
   }
 }

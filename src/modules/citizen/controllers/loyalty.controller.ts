@@ -44,4 +44,10 @@ export class LoyaltyController {
   async getMyPoints(@GetUser() user: User) {
     return await this.loyaltyService.getMyPoints(user.id);
   }
+
+  @Get(routesV1.citizen.getMyGifts)
+  @ApiOperation({ summary: 'Xem danh sách quà đã đổi (Ví Voucher)' })
+  async getMyGifts(@GetUser() user: User) {
+    return await this.loyaltyService.getMyGifts(user.id);
+  }
 }
