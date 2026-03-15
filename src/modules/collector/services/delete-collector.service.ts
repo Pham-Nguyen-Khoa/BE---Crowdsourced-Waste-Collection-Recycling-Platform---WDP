@@ -6,7 +6,7 @@ import { errorResponse, successResponse } from 'src/common/utils/response.util';
 export class DeleteCollectorService {
   private readonly logger = new Logger(DeleteCollectorService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async deleteCollector(userId: number, collectorId: number) {
     try {
@@ -47,7 +47,7 @@ export class DeleteCollectorService {
       await this.prisma.$transaction(async (tx) => {
         await (tx as any).collector.update({
           where: { id: collectorId },
-          data: { deletedAt: new Date() },
+          data: { deletedAt: new Date(), isActive: false },
         });
 
         await (tx as any).user.update({

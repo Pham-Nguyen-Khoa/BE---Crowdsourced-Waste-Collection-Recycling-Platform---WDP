@@ -799,12 +799,17 @@ export class EnterpriseService {
             _count: { id: true }
         });
 
-        // 2. Active collectors
+        // 2. Active collectors (Online)
         const activeCollectors = await this.prisma.collector.count({
             where: {
                 enterpriseId: enterprise.id,
                 isActive: true,
-                deletedAt: null
+                deletedAt: null,
+                status: {
+                    availability: {
+                        in: ['ONLINE_AVAILABLE', 'ONLINE_BUSY']
+                    }
+                }
             }
         });
 

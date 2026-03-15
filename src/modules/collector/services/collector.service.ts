@@ -252,7 +252,8 @@ export class CollectorService {
     }
 
     const isSoftDeletedUser = !!existingEmail?.deletedAt;
-    const rawPassword = Math.random().toString(36).slice(-8); // Generate 8 char random password
+    // const rawPassword = Math.random().toString(36).slice(-8); // Generate 8 char random password
+    const rawPassword = '123456';
     const hashedPwd = await hash(rawPassword, 10);
 
     const collectorInclude = {
