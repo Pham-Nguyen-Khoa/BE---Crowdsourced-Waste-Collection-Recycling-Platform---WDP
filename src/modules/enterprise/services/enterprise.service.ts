@@ -899,8 +899,21 @@ export class EnterpriseService {
 
         // Sort ranking
         ranking.sort((a, b) => {
-            const valA = (a as any)[query.sortBy || 'weight'] || 0;
-            const valB = (b as any)[query.sortBy || 'weight'] || 0;
+            const sortBy = query.sortBy || 'weight';
+            let valA = 0;
+            let valB = 0;
+
+            if (sortBy === 'weight') {
+                valA = a.totalWeight;
+                valB = b.totalWeight;
+            } else if (sortBy === 'tasks') {
+                valA = a.completedTasks;
+                valB = b.completedTasks;
+            } else if (sortBy === 'trust') {
+                valA = a.trustScore;
+                valB = b.trustScore;
+            }
+
             return query.order === 'desc' ? valB - valA : valA - valB;
         });
 
