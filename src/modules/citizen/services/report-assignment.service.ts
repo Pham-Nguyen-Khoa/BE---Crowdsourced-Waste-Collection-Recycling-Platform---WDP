@@ -87,6 +87,7 @@ export class ReportAssignmentService {
       }
     })
 
+    console.log(attempt.id)
     await this.prisma.reportEnterpriseAttempt.updateMany({
       where: {
         reportId,

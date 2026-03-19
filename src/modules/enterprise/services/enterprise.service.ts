@@ -1014,10 +1014,12 @@ export class EnterpriseService {
 
         const enterpriseId = enterprise.id;
 
-        // 1. Lấy các đơn hàng đã ACCEPTED nhưng sau đó bị CANCELLED
-        const acceptedAndCancelled = await this.prisma.reportAssignment.findMany({
+        const cancelledAttempts = await this.prisma.reportEnterpriseAttempt.findMany({
             where: {
                 enterpriseId,
+                status: {
+                    in: ['ACCEPTED', 'WAITING', 'CANCELLED']
+                },
                 report: {
                     status: 'CANCELLED'
                 }
@@ -1029,83 +1031,71 @@ export class EnterpriseService {
                         images: true,
                         reportFakeLogs: {
                             include: {
-                                reporter: { select: { fullName: true } }
+                                reporter: {
+                                    select: {
+                                        fullName: true,
+                                        phone: true,
+                                        avatar: true,
+                                        collector: {
+                                            select: { id: true, employeeCode: true }
+                                        }
+                                    }
+                                }
                             }
                         },
                         citizen: {
-                            select: { fullName: true, phone: true }
+                            select: { fullName: true, phone: true, avatar: true }
                         }
                     }
                 }
             },
-            orderBy: { assignedAt: 'desc' }
+            orderBy: { updatedAt: 'desc' }
         });
 
-        // 2. Lấy các đơn hàng chưa ACCEPTED (đang WAITING) nhưng Citizen đã CANCELLED đơn đó
-        const waitingAndCancelled = await this.prisma.reportEnterpriseAttempt.findMany({
-            where: {
-                enterpriseId,
-                status: 'CANCELLED',
-                report: {
-                    status: 'CANCELLED'
-                }
-            },
-            include: {
-                report: {
-                    include: {
-                        wasteItems: true,
-                        images: true,
-                        reportFakeLogs: {
-                            include: {
-                                reporter: { select: { fullName: true } }
-                            }
-                        },
-                        citizen: {
-                            select: { fullName: true, phone: true }
-                        }
-                    }
-                }
-            },
-            orderBy: { sentAt: 'desc' }
-        });
+        // Format dữ liệu
+        const reports = cancelledAttempts.map(attempt => {
+            const r = attempt.report;
+            const hasFakeLogs = r.reportFakeLogs.length > 0;
 
-        // Format và gộp dữ liệu
-        const reports = [
-            ...acceptedAndCancelled.map(a => {
-                const hasFakeLogs = a.report.reportFakeLogs.length > 0;
-                return {
-                    ...a.report,
-                    type: 'WAS_ACCEPTED',
-                    cancelledAt: a.report.updatedAt,
-                    cancelBy: hasFakeLogs ? 'COLLECTOR' : 'CITIZEN',
-                    cancelDetails: {
-                        reason: a.report.cancelReason,
-                        collectorLogs: a.report.reportFakeLogs.map(log => ({
-                            reason: log.reason,
-                            images: log.images,
-                            reporter: log.reporter.fullName
-                        }))
-                    }
-                };
-            }),
-            ...waitingAndCancelled.map(w => {
-                const hasFakeLogs = w.report.reportFakeLogs.length > 0;
-                return {
-                    ...w.report,
-                    type: 'WAS_WAITING',
-                    cancelledAt: w.report.updatedAt,
-                    cancelBy: hasFakeLogs ? 'COLLECTOR' : 'CITIZEN',
-                    cancelDetails: {
-                        reason: w.report.cancelReason,
-                        collectorLogs: w.report.reportFakeLogs.map(log => ({
-                            reason: log.reason,
-                            images: log.images,
-                            reporter: log.reporter.fullName
-                        }))
-                    }
-                };
-            })
-        ].sort((a, b) => b.cancelledAt.getTime() - a.cancelledAt.getTime());
+            return {
+                id: r.id,
+                address: r.address,
+                latitude: Number(r.latitude),
+                longitude: Number(r.longitude),
+                description: r.description,
+                createdAt: r.createdAt,
+                cancelledAt: r.updatedAt,
+
+                wasteItems: r.wasteItems.map(w => ({
+                    wasteType: w.wasteType,
+                    weightKg: Number(w.weightKg)
+                })),
+                images: r.images.map(img => img.imageUrl),
+
+                citizen: {
+                    fullName: r.citizen.fullName,
+                    phone: r.citizen.phone,
+                    avatar: r.citizen.avatar
+                },
+
+                type: attempt.status === 'ACCEPTED' ? 'WAS_ACCEPTED' : 'WAS_WAITING',
+                cancelBy: hasFakeLogs ? 'COLLECTOR' : 'CITIZEN',
+                cancelDetails: {
+                    reason: r.cancelReason,
+                    collectorInfo: hasFakeLogs ? {
+                        id: r.reportFakeLogs[0].reporter.collector?.id,
+                        employeeCode: r.reportFakeLogs[0].reporter.collector?.employeeCode,
+                        fullName: r.reportFakeLogs[0].reporter.fullName,
+                        phone: r.reportFakeLogs[0].reporter.phone,
+                        avatar: r.reportFakeLogs[0].reporter.avatar
+                    } : null,
+                    collectorLogs: r.reportFakeLogs.map(log => ({
+                        reason: log.reason,
+                        images: log.images
+                    }))
+                }
+            };
+        }).sort((a, b) => b.cancelledAt.getTime() - a.cancelledAt.getTime());
 
         return successResponse(200, reports, 'Lấy danh sách đơn hàng đã hủy thành công');
     }

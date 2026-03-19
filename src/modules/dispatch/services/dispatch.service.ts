@@ -67,9 +67,13 @@ export class DispatchService {
 
     if (candidates.length === 0) {
       this.logger.warn(
-        `No available candidates (in working hours) for report ${reportId}`,
+        `No available candidates (in working hours) for report ${reportId}. Putting report in ENTERPRISE_RESERVED.`,
       );
-      await this.handleEnterpriseFallback(reportId, enterpriseId);
+      
+      await this.prisma.report.update({
+        where: { id: reportId },
+        data: { status: 'ENTERPRISE_RESERVED' },
+      });
       return null;
     }
 
@@ -190,9 +194,12 @@ export class DispatchService {
     }
 
     this.logger.warn(
-      `All candidate locks failed for report ${reportId}, triggering fallback`,
+      `All candidate locks failed for report ${reportId}. Putting report in ENTERPRISE_RESERVED.`,
     );
-    await this.handleEnterpriseFallback(reportId, enterpriseId);
+    await this.prisma.report.update({
+      where: { id: reportId },
+      data: { status: 'ENTERPRISE_RESERVED' },
+    });
     return null;
   }
 

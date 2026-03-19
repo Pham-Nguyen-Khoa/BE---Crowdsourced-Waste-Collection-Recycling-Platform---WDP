@@ -29,7 +29,7 @@ export class CollectorTaskService {
     private readonly eventEmitter: EventEmitter2,
     private readonly notificationService: NotificationService,
     private readonly supabaseService: SupabaseService,
-  ) {}
+  ) { }
 
   async getMyPendingTasks(collectorId: number) {
     const tasks = await this.prisma.collectorTaskAttempt.findMany({
@@ -705,7 +705,7 @@ export class CollectorTaskService {
         where: { id: reportId, status: 'ARRIVED' },
         data: {
           status: 'CANCELLED',
-          cancelReason: `Báo cáo sự cố từ Collector: ${reason}`,
+          cancelReason: `Báo cáo sự cố từ người thu gom: ${reason}`,
           evidenceImages: uploadedImageUrls,
           updatedAt: now,
         },

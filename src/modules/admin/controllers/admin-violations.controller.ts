@@ -99,6 +99,7 @@ export class AdminViolationsController {
         },
         violator: {
           select: {
+            id: true,
             fullName: true,
             email: true,
             avatar: true,
@@ -130,6 +131,7 @@ export class AdminViolationsController {
         enterpriseName: log.reporter.collector?.enterprise?.name || 'N/A'
       },
       violator: {
+        id: log.violator.id,
         fullName: log.violator.fullName,
         email: log.violator.email,
         avatar: log.violator.avatar,

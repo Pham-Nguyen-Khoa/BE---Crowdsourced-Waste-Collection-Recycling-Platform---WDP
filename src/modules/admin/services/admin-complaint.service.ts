@@ -61,7 +61,7 @@ export class AdminComplaintService {
                   collector: {
                     include: {
                       user: {
-                        select: { fullName: true, email: true },
+                        select: { fullName: true, email: true, avatar: true },
                       },
                       _count: {
                         select: {
@@ -103,6 +103,7 @@ export class AdminComplaintService {
           id: c.citizen.id,
           fullName: c.citizen.fullName,
           phone: c.citizen.phone,
+          avatar: c.citizen.avatar,
           trustStats: {
             totalComplaints: c.citizen._count.complaints,
             totalFakeReports: c.citizen._count.reportedFakes,
@@ -113,6 +114,7 @@ export class AdminComplaintService {
           ? {
             id: collector.id,
             fullName: collector.user.fullName,
+            avatar: collector.user.avatar,
             employeeCode: collector.employeeCode,
             trustScore: collector.trustScore,
             skipCount: collector.skipCount,
@@ -146,10 +148,10 @@ export class AdminComplaintService {
           // Đối soát thời gian
           timing: {
             deadline: report.arrivalDeadline,
-            arrivedAt: report.arrivedAt,
+            completedAt: report.completedAt,
             isLate:
-              report.arrivedAt && report.arrivalDeadline
-                ? report.arrivedAt > report.arrivalDeadline
+              report.completedAt && report.arrivalDeadline
+                ? report.completedAt > report.arrivalDeadline
                 : false,
           },
         },

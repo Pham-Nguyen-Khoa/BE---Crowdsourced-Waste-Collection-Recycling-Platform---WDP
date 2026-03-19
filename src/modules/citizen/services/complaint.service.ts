@@ -14,7 +14,7 @@ export class ComplaintService {
     private readonly prisma: PrismaService,
     private readonly supabaseService: SupabaseService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async createComplaint(
     citizenId: number,
@@ -127,11 +127,22 @@ export class ComplaintService {
             status: true,
             assignment: {
               select: {
+                enterprise: {
+                  select: {
+                    name: true,
+                    user: {
+                      select: {
+                        avatar: true,
+                      }
+                    }
+                  },
+                },
                 collector: {
                   select: {
                     user: {
                       select: {
                         fullName: true,
+                        avatar: true,
                       },
                     },
                   },
@@ -159,6 +170,9 @@ export class ComplaintService {
         address: c.report.address,
         reportStatus: c.report.status,
         collectorName: c.report.assignment?.collector?.user?.fullName || 'Chưa phân công',
+        collectorAvatar: c.report.assignment?.collector?.user?.avatar || '',
+        enterpriseName: c.report.assignment?.enterprise?.name || '',
+        enterpriseAvatar: c.report.assignment?.enterprise?.user?.avatar || '',
       },
     }));
 
