@@ -7,12 +7,14 @@ import { JwtService } from '@nestjs/jwt';
 import { GetEnterprisesMapController } from './controllers/get-enterprises-map.controller';
 import { GiftController } from './controllers/gift.controller';
 import { AdminViolationsController } from './controllers/admin-violations.controller';
+import { AdminComplaintController } from './controllers/admin-complaint.controller';
+import { AdminDashboardController } from './controllers/admin-dashboard.controller';
 
 // Services
 import { GetEnterprisesMapService } from './services/get-enterprises-map.service';
 import { GiftAdminService } from './services/gift-admin.service';
-import { AdminComplaintController } from './controllers/admin-complaint.controller';
 import { AdminComplaintService } from './services/admin-complaint.service';
+import { AdminDashboardService } from './services/admin-dashboard.service';
 
 import { SupabaseModule } from '../supabase/supabase.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -22,12 +24,14 @@ const httpController = [
   GiftController,
   AdminViolationsController,
   AdminComplaintController,
+  AdminDashboardController,
 ];
 
 const Services = [
   GetEnterprisesMapService,
   GiftAdminService,
   AdminComplaintService,
+  AdminDashboardService,
 ];
 
 @Module({

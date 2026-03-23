@@ -29,7 +29,7 @@ export class CollectorTaskService {
     private readonly eventEmitter: EventEmitter2,
     private readonly notificationService: NotificationService,
     private readonly supabaseService: SupabaseService,
-  ) { }
+  ) {}
 
   async getMyPendingTasks(collectorId: number) {
     const tasks = await this.prisma.collectorTaskAttempt.findMany({
@@ -726,7 +726,8 @@ export class CollectorTaskService {
         select: { userId: true },
       });
 
-      if (!collector) return errorResponse(404, 'Không tìm thấy thông tin collector');
+      if (!collector)
+        return errorResponse(404, 'Không tìm thấy thông tin collector');
 
       await tx.reportFakeLog.create({
         data: {
@@ -735,6 +736,14 @@ export class CollectorTaskService {
           violatorId: report.citizenId,
           reason,
           images: uploadedImageUrls,
+        },
+      });
+
+      await tx.collectorStatus.update({
+        where: { collectorId },
+        data: {
+          availability: 'ONLINE_AVAILABLE',
+          lastActivityAt: new Date(),
         },
       });
 

@@ -1099,4 +1099,38 @@ export class EnterpriseService {
 
         return successResponse(200, reports, 'Lấy danh sách đơn hàng đã hủy thành công');
     }
+
+    /**
+     * Cập nhật lịch làm việc của Collector
+     */
+    async updateCollectorWorkingHours(userId: number, collectorId: number, workingHours: any) {
+        try {
+            const enterprise = await this.prisma.enterprise.findFirst({
+                where: { userId },
+                select: { id: true }
+            });
+
+            if (!enterprise) {
+                return errorResponse(400, 'Bạn không phải doanh nghiệp', 'NOT_ENTERPRISE');
+            }
+
+            const collector = await this.prisma.collector.findFirst({
+                where: { id: collectorId, enterpriseId: enterprise.id, deletedAt: null }
+            });
+
+            if (!collector) {
+                return errorResponse(404, 'Không tìm thấy collector thuộc doanh nghiệp của bạn', 'COLLECTOR_NOT_FOUND');
+            }
+
+            const updated = await this.prisma.collector.update({
+                where: { id: collectorId },
+                data: { workingHours }
+            });
+
+            return successResponse(200, updated.workingHours, 'Cập nhật lịch làm việc thành công');
+        } catch (error) {
+            console.error('Error updating collector working hours:', error);
+            return errorResponse(500, 'Lỗi cập nhật lịch làm việc', 'UPDATE_FAILED');
+        }
+    }
 }

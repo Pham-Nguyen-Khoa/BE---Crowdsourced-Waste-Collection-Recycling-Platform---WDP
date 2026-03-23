@@ -10,7 +10,9 @@ import { IoAdapter } from '@nestjs/platform-socket.io';
 import { TimezoneInterceptor } from './common/interceptors/timezone.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log'], // Only show errors, warnings and explicit logs, hide initialization noise
+  });
 
   // Env
   const configService = app.get(ConfigService);

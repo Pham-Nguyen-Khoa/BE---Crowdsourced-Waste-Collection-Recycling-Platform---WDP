@@ -7,12 +7,14 @@ import {
   Param,
   UseGuards,
   Put,
+  Patch,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { routesV1 } from 'src/configs/app.routes';
 import { resourcesV1, PermissionCode } from 'src/configs/app.permission';
 import { CreateEnterpriseDto } from '../dtos/create-enterprise.dto';
 import { UpdateEnterpriseDto } from '../dtos/update-enterprise.dto';
+import { UpdateWorkingHoursDto } from '../dtos/update-working-hours.dto';
 import { CreatePaymentDto } from '../dtos/create-payment.dto';
 import { EnterpriseService } from '../services/enterprise.service';
 import { GetUser } from '../../auth/guards/get-user.decorator';
@@ -26,7 +28,7 @@ import { Roles } from 'src/modules/auth/guards/roles.decorator';
 @ApiTags(`${resourcesV1.REGISTER_ENTERPRISE.parent}`)
 @Controller(routesV1.apiversion)
 export class EnterpriseController {
-  constructor(private readonly enterpriseService: EnterpriseService) { }
+  constructor(private readonly enterpriseService: EnterpriseService) {}
 
   @ApiOperation({ summary: 'Lấy danh sách gói subscription' })
   @Get(routesV1.enterprise.getPlans)
@@ -116,6 +118,23 @@ export class EnterpriseController {
   @Put(routesV1.enterprise.updateProfile)
   async updateProfile(@GetUser() user: User, @Body() dto: UpdateEnterpriseDto) {
     return await this.enterpriseService.updateEnterprise(user.id, dto);
+  }
+
+  @ApiOperation({ summary: 'Cập nhật lịch làm việc của Collector' })
+  @ApiBearerAuth()
+  @UseGuards(JWTGuard, RolesGuard)
+  @Roles(2)
+  @Patch('enterprise/collectors/:id/working-hours')
+  async updateCollectorWorkingHours(
+    @GetUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: UpdateWorkingHoursDto,
+  ) {
+    return await this.enterpriseService.updateCollectorWorkingHours(
+      user.id,
+      +id,
+      dto.workingHours,
+    );
   }
 
   @ApiOperation({ summary: 'Lấy các đơn hàng đã bị hủy' })
