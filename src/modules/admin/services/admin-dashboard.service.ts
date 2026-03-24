@@ -4,7 +4,7 @@ import { successResponse } from 'src/common/utils/response.util';
 
 @Injectable()
 export class AdminDashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   // ────────────────────────────────────────────────────────────────────────────
   // OVERVIEW STATS (numbers shown at top of dashboard)
@@ -84,7 +84,7 @@ export class AdminDashboardService {
       this.prisma.report.count({ where: { status: 'COMPLETED', deletedAt: null } }),
       this.prisma.report.count({
         where: {
-          status: { in: ['FAILED', 'FAILED_NO_RESPONSE', 'FAILED_CITIZEN_NOT_HOME'] },
+          status: { in: ['CANCELLED', 'FAILED_NO_RESPONSE', 'FAILED_CITIZEN_NOT_HOME'] },
           deletedAt: null,
         },
       }),
@@ -110,7 +110,7 @@ export class AdminDashboardService {
           thisMonth: reportsThisMonth,
           growthPercent: reportGrowthPercent,
           completed: reportsCompleted,
-          failed: reportsFailed,
+          cancelled: reportsFailed,
           pending: reportsPending,
           completionRate:
             totalReports > 0 ? Math.round((reportsCompleted / totalReports) * 100) : 0,
@@ -143,44 +143,62 @@ export class AdminDashboardService {
     );
   }
 
+  private toLocalDateString(date: Date): string {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
   // ────────────────────────────────────────────────────────────────────────────
   // REPORT TRENDS (daily counts for the last N days)
   // ────────────────────────────────────────────────────────────────────────────
   async getReportTrends(days: number = 30) {
     const results: { date: string; total: number; completed: number; failed: number }[] = [];
     const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1));
 
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + 1);
+    // Initialize results array with empty counts
+    const resultsMap: Record<string, { total: number; completed: number; failed: number }> = {};
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateStr = this.toLocalDateString(date);
+      resultsMap[dateStr] = { total: 0, completed: 0, failed: 0 };
+      results.push({ date: dateStr, total: 0, completed: 0, failed: 0 });
+    }
 
-      const [total, completed, failed] = await Promise.all([
-        this.prisma.report.count({
-          where: { createdAt: { gte: date, lt: nextDate }, deletedAt: null },
-        }),
-        this.prisma.report.count({
-          where: {
-            createdAt: { gte: date, lt: nextDate },
-            status: 'COMPLETED',
-            deletedAt: null,
-          },
-        }),
-        this.prisma.report.count({
-          where: {
-            createdAt: { gte: date, lt: nextDate },
-            status: { in: ['FAILED', 'FAILED_NO_RESPONSE', 'FAILED_CITIZEN_NOT_HOME'] },
-            deletedAt: null,
-          },
-        }),
-      ]);
+    // Fetch all reports in the range once
+    const reports = await this.prisma.report.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        deletedAt: null,
+      },
+      select: {
+        createdAt: true,
+        status: true,
+      },
+    });
 
-      results.push({
-        date: date.toISOString().split('T')[0],
-        total,
-        completed,
-        failed,
-      });
+    // Group in memory
+    const failedStatuses = ['FAILED', 'FAILED_NO_RESPONSE', 'FAILED_CITIZEN_NOT_HOME'];
+    for (const report of reports) {
+      const dateStr = this.toLocalDateString(report.createdAt);
+      if (resultsMap[dateStr]) {
+        resultsMap[dateStr].total++;
+        if (report.status === 'COMPLETED') {
+          resultsMap[dateStr].completed++;
+        } else if (failedStatuses.includes(report.status)) {
+          resultsMap[dateStr].failed++;
+        }
+      }
+    }
+
+    // Update results from map
+    for (const res of results) {
+      res.total = resultsMap[res.date].total;
+      res.completed = resultsMap[res.date].completed;
+      res.failed = resultsMap[res.date].failed;
     }
 
     return successResponse(200, results, 'Lấy xu hướng báo cáo thành công');
@@ -190,49 +208,61 @@ export class AdminDashboardService {
   // NEW USER TRENDS (daily new registrations for the last N days)
   // ────────────────────────────────────────────────────────────────────────────
   async getUserTrends(days: number = 30) {
-    const results: { date: string; newUsers: number; citizens: number; collectors: number; enterprises: number }[] = [];
+    const results: {
+      date: string;
+      newUsers: number;
+      citizens: number;
+      collectors: number;
+      enterprises: number;
+    }[] = [];
     const now = new Date();
+    const startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (days - 1));
 
     // Get role IDs once
     const roles = await this.prisma.role.findMany({ select: { id: true, name: true } });
     const roleMap = Object.fromEntries(roles.map((r) => [r.name, r.id]));
+    const roleIdToName = Object.fromEntries(roles.map((r) => [r.id, r.name]));
 
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-      const nextDate = new Date(date);
-      nextDate.setDate(nextDate.getDate() + 1);
+    // Initialize results array with empty counts
+    const resultsMap: Record<string, { citizens: number; collectors: number; enterprises: number }> = {};
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
+      const dateStr = this.toLocalDateString(date);
+      resultsMap[dateStr] = { citizens: 0, collectors: 0, enterprises: 0 };
+      results.push({ date: dateStr, newUsers: 0, citizens: 0, collectors: 0, enterprises: 0 });
+    }
 
-      const [citizens, collectors, enterprises] = await Promise.all([
-        this.prisma.user.count({
-          where: {
-            createdAt: { gte: date, lt: nextDate },
-            roleId: roleMap['CITIZEN'],
-            deletedAt: null,
-          },
-        }),
-        this.prisma.user.count({
-          where: {
-            createdAt: { gte: date, lt: nextDate },
-            roleId: roleMap['COLLECTOR'],
-            deletedAt: null,
-          },
-        }),
-        this.prisma.user.count({
-          where: {
-            createdAt: { gte: date, lt: nextDate },
-            roleId: roleMap['ENTERPRISE'],
-            deletedAt: null,
-          },
-        }),
-      ]);
+    // Fetch all users in the range once
+    const users = await this.prisma.user.findMany({
+      where: {
+        createdAt: { gte: startDate },
+        deletedAt: null,
+      },
+      select: {
+        createdAt: true,
+        roleId: true,
+      },
+    });
 
-      results.push({
-        date: date.toISOString().split('T')[0],
-        newUsers: citizens + collectors + enterprises,
-        citizens,
-        collectors,
-        enterprises,
-      });
+    // Group in memory
+    for (const user of users) {
+      const dateStr = this.toLocalDateString(user.createdAt);
+      if (resultsMap[dateStr]) {
+        const roleName = roleIdToName[user.roleId];
+        if (roleName === 'CITIZEN') resultsMap[dateStr].citizens++;
+        else if (roleName === 'COLLECTOR') resultsMap[dateStr].collectors++;
+        else if (roleName === 'ENTERPRISE') resultsMap[dateStr].enterprises++;
+      }
+    }
+
+    // Update results from map
+    for (const res of results) {
+      const counts = resultsMap[res.date];
+      res.citizens = counts.citizens;
+      res.collectors = counts.collectors;
+      res.enterprises = counts.enterprises;
+      res.newUsers = counts.citizens + counts.collectors + counts.enterprises;
     }
 
     return successResponse(200, results, 'Lấy xu hướng người dùng thành công');
@@ -422,12 +452,12 @@ export class AdminDashboardService {
 
     const searchFilter = search
       ? {
-          OR: [
-            { fullName: { contains: search, mode: 'insensitive' as const } },
-            { email: { contains: search, mode: 'insensitive' as const } },
-            { phone: { contains: search, mode: 'insensitive' as const } },
-          ],
-        }
+        OR: [
+          { fullName: { contains: search, mode: 'insensitive' as const } },
+          { email: { contains: search, mode: 'insensitive' as const } },
+          { phone: { contains: search, mode: 'insensitive' as const } },
+        ],
+      }
       : {};
 
     const where = {
@@ -582,9 +612,9 @@ export class AdminDashboardService {
           totalAssignments: e._count.reportAssignments,
           activeSubscription: e.subscriptions[0]
             ? {
-                planName: e.subscriptions[0].subscriptionPlanConfig.name,
-                endDate: e.subscriptions[0].endDate,
-              }
+              planName: e.subscriptions[0].subscriptionPlanConfig.name,
+              endDate: e.subscriptions[0].endDate,
+            }
             : null,
           createdAt: e.createdAt,
         })),
