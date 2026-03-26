@@ -118,9 +118,7 @@ export class RewardService {
             type: PointTransactionType.EARN,
             amount: finalReward,
             balanceAfter: updatedUser.balance,
-            description: `Bạn đã thu gom ${payload.totalActualWeight} kg rác. 
-Phần thưởng: ${rewardBreakdown.join(', ')}. 
-Đánh giá phân loại: ${accuracyLabel}.`,
+            description: `Bạn đã thu gom ${payload.totalActualWeight} kg rác.`,
           },
         });
 
