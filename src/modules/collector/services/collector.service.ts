@@ -18,7 +18,7 @@ export class CollectorService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly mailerService: MailerService,
-  ) {}
+  ) { }
 
   private async sendCollectorAccountEmail(
     email: string,
@@ -386,15 +386,13 @@ export class CollectorService {
         id: true,
         employeeCode: true,
         workingHours: true,
-        // trustScore: true,
-        // earnings: true,
+        trustScore: true,
         user: {
           select: {
             fullName: true,
             email: true,
             phone: true,
             avatar: true,
-            // balance: true,
           },
         },
         status: {
@@ -412,7 +410,13 @@ export class CollectorService {
 
     if (!collector) return errorResponse(404, 'Collector not found');
 
-    return successResponse(200, collector, 'Get profile successfully');
+    return successResponse(
+      200,
+      {
+        ...collector,
+      },
+      'Get profile successfully',
+    );
   }
 
   async getAcceptedReports(collectorId: number) {
@@ -547,9 +551,9 @@ export class CollectorService {
       actualWasteItems:
         h.report.actualWasteItems.length > 0
           ? h.report.actualWasteItems.map((wi) => ({
-              type: wi.wasteType,
-              weight: Number(wi.weightKg),
-            }))
+            type: wi.wasteType,
+            weight: Number(wi.weightKg),
+          }))
           : null,
     }));
 
