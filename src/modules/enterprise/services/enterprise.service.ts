@@ -793,7 +793,10 @@ export class EnterpriseService {
         thirtyDaysAgo.setDate(now.getDate() - 30);
 
         const startDate = query.startDate ? new Date(query.startDate) : thirtyDaysAgo;
+        if (query.startDate) startDate.setHours(0, 0, 0, 0);
+
         const endDate = query.endDate ? new Date(query.endDate) : now;
+        if (query.endDate) endDate.setHours(23, 59, 59, 999);
 
         const todayStart = new Date();
         todayStart.setHours(0, 0, 0, 0);
@@ -882,7 +885,10 @@ export class EnterpriseService {
         thirtyDaysAgo.setDate(now.getDate() - 30);
 
         const startDate = query.startDate ? new Date(query.startDate) : thirtyDaysAgo;
+        if (query.startDate) startDate.setHours(0, 0, 0, 0);
+
         const endDate = query.endDate ? new Date(query.endDate) : now;
+        if (query.endDate) endDate.setHours(23, 59, 59, 999);
 
         const collectors = await this.prisma.collector.findMany({
             where: { enterpriseId: enterprise.id, deletedAt: null },
@@ -949,7 +955,10 @@ export class EnterpriseService {
         thirtyDaysAgo.setDate(now.getDate() - 30);
 
         const startDate = query.startDate ? new Date(query.startDate) : thirtyDaysAgo;
+        if (query.startDate) startDate.setHours(0, 0, 0, 0);
+
         const endDate = query.endDate ? new Date(query.endDate) : now;
+        if (query.endDate) endDate.setHours(23, 59, 59, 999);
 
         const reports = await this.prisma.report.findMany({
             where: {
