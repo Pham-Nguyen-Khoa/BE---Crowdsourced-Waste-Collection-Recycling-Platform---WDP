@@ -8,6 +8,7 @@ import { errorResponse, successResponse } from 'src/common/utils/response.util';
 import { QRGenerator } from 'src/common/utils/qr.util';
 import { PrismaService } from 'src/libs/prisma/prisma.service';
 import { DashboardQueryDto, RankingQueryDto, DashboardStatsQueryDto } from '../dtos/dashboard-query.dto';
+import { getDistance } from 'geolib';
 
 @Injectable()
 export class EnterpriseService {
@@ -670,47 +671,58 @@ export class EnterpriseService {
         try {
             const assignments = await this.enterpriseRepository.findAcceptedReportsByUserId(userId);
 
-            const formattedReports = assignments.map(a => ({
-                id: a.report.id,
-                reportId: a.reportId,
-                status: a.report.status,
-                address: a.report.address,
-                latitude: Number(a.report.latitude),
-                longitude: Number(a.report.longitude),
-                description: a.report.description,
-                assignedAt: a.assignedAt,
-                completedAt: a.completedAt,
-                wasteItems: a.report.wasteItems.map(wi => ({
-                    wasteType: wi.wasteType,
-                    weightKg: Number(wi.weightKg)
-                })),
-                actualWasteItems: (a.report as any).actualWasteItems?.length > 0 ? (a.report as any).actualWasteItems.map(wi => ({
-                    wasteType: wi.wasteType,
-                    weightKg: Number(wi.weightKg)
-                })) : null,
-                actualWeight: a.report.actualWeight ? Number(a.report.actualWeight) : null,
-                accuracyBucket: a.report.accuracyBucket,
 
-                images: a.report.images.map(img => img.imageUrl),
-                citizen: {
-                    fullName: a.report.citizen.fullName,
-                    phone: a.report.citizen.phone
-                },
-                collector: a.collector ? {
-                    id: a.collector.id,
-                    employeeCode: a.collector.employeeCode,
-                    fullName: a.collector.user.fullName,
-                    phone: a.collector.user.phone,
-                    avatar: a.collector.user.avatar
-                } : ((a.report as any).collectorTaskAttempts?.length > 0 ? {
-                    id: (a.report as any).collectorTaskAttempts[0].collector.id,
-                    employeeCode: (a.report as any).collectorTaskAttempts[0].collector.employeeCode,
-                    fullName: (a.report as any).collectorTaskAttempts[0].collector.user.fullName,
-                    email: (a.report as any).collectorTaskAttempts[0].collector.user.email,
-                    phone: (a.report as any).collectorTaskAttempts[0].collector.user.phone,
-                    avatar: (a.report as any).collectorTaskAttempts[0].collector.user.avatar
-                } : null)
-            }));
+            const formattedReports = assignments.map(a => {
+                const distanceKm =
+                    a.enterprise.latitude && a.enterprise.longitude
+                        ? getDistance(
+                            { latitude: Number(a.enterprise.latitude), longitude: Number(a.enterprise.longitude) },
+                            { latitude: Number(a.report.latitude), longitude: Number(a.report.longitude) },
+                        ) / 1000
+                        : 0;
+                return {
+                    id: a.report.id,
+                    reportId: a.reportId,
+                    status: a.report.status,
+                    address: a.report.address,
+                    latitude: Number(a.report.latitude),
+                    longitude: Number(a.report.longitude),
+                    distanceKm: Math.round(distanceKm * 10) / 10,
+                    description: a.report.description,
+                    assignedAt: a.assignedAt,
+                    completedAt: a.completedAt,
+                    wasteItems: a.report.wasteItems.map(wi => ({
+                        wasteType: wi.wasteType,
+                        weightKg: Number(wi.weightKg)
+                    })),
+                    actualWasteItems: (a.report as any).actualWasteItems?.length > 0 ? (a.report as any).actualWasteItems.map(wi => ({
+                        wasteType: wi.wasteType,
+                        weightKg: Number(wi.weightKg)
+                    })) : null,
+                    actualWeight: a.report.actualWeight ? Number(a.report.actualWeight) : null,
+                    accuracyBucket: a.report.accuracyBucket,
+
+                    images: a.report.images.map(img => img.imageUrl),
+                    citizen: {
+                        fullName: a.report.citizen.fullName,
+                        phone: a.report.citizen.phone
+                    },
+                    collector: a.collector ? {
+                        id: a.collector.id,
+                        employeeCode: a.collector.employeeCode,
+                        fullName: a.collector.user.fullName,
+                        phone: a.collector.user.phone,
+                        avatar: a.collector.user.avatar
+                    } : ((a.report as any).collectorTaskAttempts?.length > 0 ? {
+                        id: (a.report as any).collectorTaskAttempts[0].collector.id,
+                        employeeCode: (a.report as any).collectorTaskAttempts[0].collector.employeeCode,
+                        fullName: (a.report as any).collectorTaskAttempts[0].collector.user.fullName,
+                        email: (a.report as any).collectorTaskAttempts[0].collector.user.email,
+                        phone: (a.report as any).collectorTaskAttempts[0].collector.user.phone,
+                        avatar: (a.report as any).collectorTaskAttempts[0].collector.user.avatar
+                    } : null)
+                };
+            });
 
             return successResponse(200, formattedReports, 'Lấy danh sách báo cáo đã chấp nhận thành công');
         } catch (error) {

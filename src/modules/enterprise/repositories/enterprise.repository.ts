@@ -212,6 +212,7 @@ export class EnterpriseRepository {
                 }
             },
             include: {
+                enterprise: true,
                 report: {
                     include: {
                         wasteItems: true,
