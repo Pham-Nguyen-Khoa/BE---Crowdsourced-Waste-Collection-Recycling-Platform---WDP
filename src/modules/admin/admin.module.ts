@@ -9,12 +9,14 @@ import { GiftController } from './controllers/gift.controller';
 import { AdminViolationsController } from './controllers/admin-violations.controller';
 import { AdminComplaintController } from './controllers/admin-complaint.controller';
 import { AdminDashboardController } from './controllers/admin-dashboard.controller';
+import { SubscriptionPlanController } from './controllers/subscription-plan.controller';
 
 // Services
 import { GetEnterprisesMapService } from './services/get-enterprises-map.service';
 import { GiftAdminService } from './services/gift-admin.service';
 import { AdminComplaintService } from './services/admin-complaint.service';
 import { AdminDashboardService } from './services/admin-dashboard.service';
+import { SubscriptionPlanService } from './services/subscription-plan.service';
 
 import { SupabaseModule } from '../supabase/supabase.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -25,6 +27,7 @@ const httpController = [
   AdminViolationsController,
   AdminComplaintController,
   AdminDashboardController,
+  SubscriptionPlanController,
 ];
 
 const Services = [
@@ -32,6 +35,7 @@ const Services = [
   GiftAdminService,
   AdminComplaintService,
   AdminDashboardService,
+  SubscriptionPlanService,
 ];
 
 @Module({
