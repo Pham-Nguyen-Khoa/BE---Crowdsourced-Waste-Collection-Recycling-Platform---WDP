@@ -181,7 +181,7 @@ export class AdminDashboardService {
     });
 
     // Group in memory
-    const failedStatuses = ['FAILED', 'FAILED_NO_RESPONSE', 'FAILED_CITIZEN_NOT_HOME'];
+    const failedStatuses = ['CANCELLED', 'FAILED_NO_RESPONSE', 'FAILED_CITIZEN_NOT_HOME'];
     for (const report of reports) {
       const dateStr = this.toLocalDateString(report.createdAt);
       if (resultsMap[dateStr]) {
