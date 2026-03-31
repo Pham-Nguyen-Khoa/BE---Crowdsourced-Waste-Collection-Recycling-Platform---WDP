@@ -699,6 +699,7 @@ export class EnterpriseService {
                         wasteType: wi.wasteType,
                         weightKg: Number(wi.weightKg)
                     })) : null,
+                    evidenceImages: a.report.evidenceImages,
                     actualWeight: a.report.actualWeight ? Number(a.report.actualWeight) : null,
                     accuracyBucket: a.report.accuracyBucket,
 
