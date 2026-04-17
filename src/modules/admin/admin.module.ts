@@ -10,6 +10,7 @@ import { AdminViolationsController } from './controllers/admin-violations.contro
 import { AdminComplaintController } from './controllers/admin-complaint.controller';
 import { AdminDashboardController } from './controllers/admin-dashboard.controller';
 import { SubscriptionPlanController } from './controllers/subscription-plan.controller';
+import { AdminPaymentController } from './controllers/admin-payment.controller';
 
 // Services
 import { GetEnterprisesMapService } from './services/get-enterprises-map.service';
@@ -17,6 +18,7 @@ import { GiftAdminService } from './services/gift-admin.service';
 import { AdminComplaintService } from './services/admin-complaint.service';
 import { AdminDashboardService } from './services/admin-dashboard.service';
 import { SubscriptionPlanService } from './services/subscription-plan.service';
+import { AdminPaymentService } from './services/admin-payment.service';
 
 import { SupabaseModule } from '../supabase/supabase.module';
 import { NotificationModule } from '../notification/notification.module';
@@ -28,6 +30,7 @@ const httpController = [
   AdminComplaintController,
   AdminDashboardController,
   SubscriptionPlanController,
+  AdminPaymentController,
 ];
 
 const Services = [
@@ -36,6 +39,7 @@ const Services = [
   AdminComplaintService,
   AdminDashboardService,
   SubscriptionPlanService,
+  AdminPaymentService,
 ];
 
 @Module({

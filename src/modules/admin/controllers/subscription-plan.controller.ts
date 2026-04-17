@@ -1,5 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Query } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { JWTGuard } from 'src/modules/auth/guards/jwt.guard';
 import { RolesGuard } from 'src/modules/auth/guards/roles.guard';
 import { Roles } from 'src/modules/auth/guards/roles.decorator';
@@ -32,6 +32,18 @@ export class SubscriptionPlanController {
   @ApiOperation({ summary: 'Chi tiết gói subscription' })
   findOne(@Param('id') id: string) {
     return this.subscriptionPlanService.findOne(+id);
+  }
+
+  @Get(':id/payments')
+  @ApiOperation({ summary: 'Danh sách thanh toán theo gói subscription' })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'status', required: false, enum: ['PENDING', 'PAID', 'FAILED', 'CANCELLED'] })
+  @ApiQuery({ name: 'paidFrom', required: false, type: String })
+  @ApiQuery({ name: 'paidTo', required: false, type: String })
+  @ApiQuery({ name: 'search', required: false, type: String })
+  getPaymentsByPlan(@Param('id') id: string, @Query() query: any) {
+    return this.subscriptionPlanService.getPaymentsByPlan(+id, query);
   }
 
   @Patch(':id')
